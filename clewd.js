@@ -16,10 +16,10 @@ const Cookie = '';
  * ClearFlags: (false) - possibly snake-oil
  */
 const Settings = {
-    'AntiStall': 2,
+    'AntiStall': false,
     'ClearFlags': true,
     'RecycleChats': false,
-    'StripAssistant': true,
+    'StripAssistant': false,
     'StripPrompt': false
 };
 
