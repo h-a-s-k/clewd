@@ -17,7 +17,7 @@ const Cookie = '';
  */
 const Settings = {
     'AntiStall': false,
-    'ClearFlags': true,
+    'ClearFlags': false,
     'RecycleChats': false,
     'StripAssistant': false,
     'StripPrompt': false

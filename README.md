@@ -18,3 +18,10 @@
 ### Requirements
 
 nodejs>=19.8.*
+
+#### Defaults
+- AntiStall: false
+- ClearFlags: true
+- RecycleChats: false
+- StripAssistant: false
+- StripPrompt: false
