@@ -1,47 +1,49 @@
 /**
  * SET YOUR COOKIE HERE
+ * @preserve
  */
 const Cookie = '';
 
-
-
 /**
- * Experimental
- * OPTION: (DEFAULT)
- * 
- * AntiStall: (false|2|1) - 2 returns the second reply by the assistant (the first is usually an apology), 1 sends whatever was last when exceeding size
- * StripPrompt: (false) - might combo well with RecycleChats, avoids sending the whole prompt history to each claude message
- * StripAssistant: (false) - might be good if your prompt/jailbreak itself ends with Assistant: 
- * RecycleChats: (false) - false is less likely to get caught in a censorship loop
- * ClearFlags: (false) - possibly snake-oil
- */
-const Settings = {
+## EXPERIMENTAL
+
+### SettingName: (DEFAULT)/opt1/opt2
+
+ 1. AntiStall: (false)/1/2
+    * 1 sends whatever was last when exceeding size (might send empty reply)
+    * 2 returns the second reply by the assistant (the first is usually an apology)
+    * false is the same as original slaude2
+    * (try out 2 if you're getting empty messages)
+
+ 2. ClearFlags: (false)
+    * possibly snake-oil
+
+ 3. RecycleChats: (false)
+    * false is less likely to get caught in a censorship loop
+
+ 4. StripAssistant: (false)
+    * might be good if your prompt/jailbreak itself ends with Assistant: 
+
+ 5. StripHuman: (false) 
+    * might(?) combo well with RecycleChats, avoids sending the whole prompt history to each message
+ * @preserve
+ */ const Settings = {
     'AntiStall': false,
     'ClearFlags': false,
     'RecycleChats': false,
     'StripAssistant': false,
-    'StripPrompt': false
+    'StripHuman': false
 };
 
 const Ip = '127.0.0.1';
 const Port = 8444;
 
-
-
-
-
-
 /**
  * Don't touch StallTriggerMax.
  * If you know what you're doing, change the 2 MB on StallTrigger to what you want
- */
-const StallTriggerMax = 5242880;
+ * @preserve
+ */ const StallTriggerMax = 5242880;
 const StallTrigger = 2097152;
-
-
-
-
-
 
 const {'createServer': Server} = require('node:http');
 const {'createHash': Hash} = require('node:crypto');
@@ -52,12 +54,15 @@ const Encoder = new TextEncoder;
 const UUIDMap = {
     'SHA1': 'uuid'
 };
-
 const cookies = {};
-
 let uuidTemp;
-
 let uuidOrg;
+
+const AI = {
+    'endPoint': () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
+    'modelA': () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
+    'modelB': () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 105, 110, 115, 116, 97, 110, 116, 45, 49 ]).toString()
+};
 
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
@@ -85,7 +90,7 @@ const updateCookies = (cookieInfo, initial = false) => {
 };
 
 const setTitle = title => {
-    process.title = 'clewd v1.0 - ' + title;
+    process.title = 'clewd v1.1 - ' + title;
 };
 
 Server(((req, res) => {
@@ -93,7 +98,7 @@ Server(((req, res) => {
         console.error(`Error: ${req.url} is unsupported`);
         return res.end();
     }
-    setTitle('recv prompt...');
+    setTitle('recv...');
     const buffer = [];
     req.on('data', (chunk => {
         buffer.push(chunk);
@@ -102,30 +107,27 @@ Server(((req, res) => {
         try {
             const body = JSON.parse(Buffer.concat(buffer).toString());
             let {'prompt': prompt} = body;
-            /**
-             * https://docs.anthropic.com/claude/reference/selecting-a-model
-             */
-			const model = /claude-v?2.*/.test(body.model) ? 'claude-2' : 'claude-instant-1';
+            const model = /claude-v?2.*/.test(body.model) ? AI.modelA() : AI.modelB();
             /**
              * Ideally SillyTavern would expose a unique frontend conversation_uuid prop to localhost proxies
              * could set the name to a hash of it
              * then fetch /chat_conversations with 'GET' and find it
-             */
-			const firstAssistantIdx = prompt.indexOf('\n\nAssistant: ');
+             * @preserve
+             */            const firstAssistantIdx = prompt.indexOf('\n\nAssistant: ');
             const lastAssistantIdx = prompt.lastIndexOf('\n\nAssistant: ');
             const lastHumanIdx = prompt.lastIndexOf('\n\nHuman: ');
             const hash = Hash('sha1');
             hash.update(prompt.substring(0, firstAssistantIdx));
             const sha = Settings.RecycleChats ? hash.digest('hex') : '';
             const uuidOld = UUIDMap[sha];
-            Settings.RecycleChats && Settings.StripPrompt && uuidOld && lastHumanIdx > -1 && (prompt = prompt.substring(lastHumanIdx, prompt.length));
+            Settings.RecycleChats && Settings.StripHuman && uuidOld && lastHumanIdx > -1 && (prompt = prompt.substring(lastHumanIdx, prompt.length));
             Settings.StripAssistant && lastAssistantIdx > -1 && (prompt = prompt.substring(0, lastAssistantIdx));
             if (Settings.RecycleChats && uuidOld) {
                 uuidTemp = uuidOld;
                 console.log(model + ' r');
             } else {
                 uuidTemp = genUUID().toString();
-                const claude = await fetch(`https://claude.ai/api/organizations/${uuidOrg}/chat_conversations`, {
+                const reqC = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
                     'headers': {
                         'Cookie': getCookies(),
                         'Content-Type': 'application/json'
@@ -136,11 +138,11 @@ Server(((req, res) => {
                         'name': sha
                     })
                 });
-                updateCookies(claude);
+                updateCookies(reqC);
                 console.log('' + model);
                 UUIDMap[sha] = uuidTemp;
             }
-            const claude = await fetch('https://claude.ai/api/append_message', {
+            const reqC = await fetch(AI.endPoint() + '/api/append_message', {
                 'headers': {
                     'Cookie': getCookies(),
                     'Content-Type': 'application/json'
@@ -158,15 +160,16 @@ Server(((req, res) => {
                     'attachments': []
                 })
             });
-            updateCookies(claude);
+            updateCookies(reqC);
             let recvLength = 0;
             let lastChunk;
-            for await (const chunk of claude.body) {
+            for await (const chunk of reqC.body) {
                 recvLength += chunk?.length || 0;
                 lastChunk = chunk;
+                const stalling = Settings.AntiStall && recvLength >= StallTrigger;
                 const decodedChunk = Decoder.decode(chunk);
-                setTitle('recv ' + bytesToSize(recvLength));
-                if (Settings.AntiStall && recvLength >= StallTrigger) {
+                setTitle(`recv ${stalling ? '(s)' : ''} ${bytesToSize(recvLength)}`);
+                if (stalling) {
                     try {
                         const triggerExceeded = recvLength >= Math.min(StallTriggerMax, 2 * StallTrigger);
                         if (Settings.AntiStall < 2 || triggerExceeded) {
@@ -194,10 +197,10 @@ Server(((req, res) => {
                 }
             }
             setTitle('ok ' + bytesToSize(recvLength));
-            console.log(`${200 == claude.status ? '[32m' : '[33m'}${claude.status}![0m ${Math.round((lastChunk?.length || 0) / recvLength * 100)}%\n`);
+            console.log(`${200 == reqC.status ? '[32m' : '[33m'}${reqC.status}![0m ${Math.round((lastChunk?.length || 1) / recvLength * 100)}%\n`);
             res.end(lastChunk);
         } catch (err) {
-            console.error('Claude error: ' + err.message);
+            console.error('Error: ' + err.message);
             console.error(err.stack);
             res.writeHead(500, {
                 'Content-Type': 'application/json'
@@ -214,15 +217,15 @@ Server(((req, res) => {
     }));
 })).listen(Port, Ip, (async () => {
     console.log(`[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map(((setting, idx) => `${setting}: ${Settings[setting]}`)).sort().join('\n')}\n`);
-    const accReq = await fetch('https://claude.ai/api/organizations', {
+    const accReq = await fetch(AI.endPoint() + '/api/organizations', {
         'method': 'GET',
         'headers': {
             'Cookie': Cookie
         }
     });
     const accInfo = (await accReq.json())?.[0];
-    if (accInfo?.error) {
-        throw Error('Couldn\'t get account info: ' + accInfo.error.message);
+    if (!accInfo || accInfo.error) {
+        throw Error('Couldn\'t get account info ' + (accInfo.error ? accInfo.error.message : 'have you set your cookie?'));
     }
     if (!accInfo?.uuid) {
         throw Error('Invalid account id');
@@ -242,7 +245,7 @@ Server(((req, res) => {
             if ('consumer_restricted_mode' === flag) {
                 return;
             }
-            const req = await fetch(`https://claude.ai/api/organizations/${uuidOrg}/flags/${flag}/dismiss`, {
+            const req = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/flags/${flag}/dismiss`, {
                 'headers': {
                     'Cookie': getCookies(),
                     'Content-Type': 'application/json'
@@ -255,7 +258,7 @@ Server(((req, res) => {
         })(flag))));
     }
     if (Settings.RecycleChats) {
-        const convReq = await fetch(`https://claude.ai/api/organizations/${uuidOrg}/chat_conversations`, {
+        const convReq = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
             'method': 'GET',
             'headers': {
                 'Cookie': getCookies()
