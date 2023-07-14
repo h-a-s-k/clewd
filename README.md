@@ -28,7 +28,7 @@ nodejs>=19.8.*
  1. AntiStall: (false)/1/2
     * 1 sends whatever was last when exceeding size (might send empty reply)
     * 2 returns the second reply by the assistant (the first is usually an apology)
-    * false is the same as original slaude2
+    * false is the same as original slaude2 (sometimes stall, sometimes empty reply)
     * (try out 2 if you're getting empty messages)
 
  2. ClearFlags: (false)
@@ -42,5 +42,3 @@ nodejs>=19.8.*
 
  5. StripHuman: (false) 
     * might(?) combo well with RecycleChats, avoids sending the whole prompt history to each message
-
-<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip"><h3>Download</h3></a>
