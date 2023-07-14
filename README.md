@@ -42,3 +42,5 @@ nodejs>=19.8.*
 
  5. StripHuman: (false) 
     * might(?) combo well with RecycleChats, avoids sending the whole prompt history to each message
+
+> [Download](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
