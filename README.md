@@ -26,10 +26,9 @@ nodejs>=19.8.*
 ### SettingName: (DEFAULT)/opt1/opt2
 
  1. AntiStall: (false)/1/2
+    * pretty much useless when using streaming
     * 1 sends whatever was last when exceeding size (might send empty reply)
     * 2 returns the second reply by the assistant (the first is usually an apology)
-    * false is the same as original slaude2 (sometimes stall, sometimes empty reply)
-    * (try out 2 if you're getting empty messages)
 
  2. ClearFlags: (false)
     * possibly snake-oil
@@ -41,6 +40,6 @@ nodejs>=19.8.*
     * might be good if your prompt/jailbreak itself ends with Assistant: 
 
  5. StripHuman: (false) 
-    * might(?) combo well with RecycleChats, avoids sending the whole prompt history to each message
+    * bad idea without RecycleChats, sends only your very last message
 
 > [Download](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
