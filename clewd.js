@@ -213,7 +213,6 @@ const Proxy = Server(((req, res) => {
                 if (null != chunk) {
                     body.stream && res.write(chunk);
                     recvBuffer.push(chunk);
-                    console.log(Decoder.decode(chunk));
                 }
                 if (done) {
                     330 === recvLength && console.log('[33mpossible hard-censor[0m');
