@@ -5,31 +5,36 @@
 const Cookie = '';
 
 
-
-
 /**
 ## EXPERIMENTAL
 
 ### SettingName: (DEFAULT)/opt1/opt2
 
- 1. AntiStall: (false)/1/2
+ 1. AdaptClaude: (false)/true
+    * tries to make human/assistant prompts uniform between endpoints
+    * almost useless with streaming on, effective with streaming off
+    * Human->H
+    * Human<-H
+
+ 2. AntiStall: (false)/1/2
     * pretty much useless when using streaming
     * 1 sends whatever was last when exceeding size (might send empty reply)
-    * 2 returns the second reply by the assistant (the first is usually an apology)
+    * 2 keeps going until it finds something usable or hitting a limit of size
 
- 2. ClearFlags: (false)
+ 3. ClearFlags: (false)/true
     * possibly snake-oil
 
- 3. RecycleChats: (false)
+ 4. RecycleChats: (false)/true
     * false is less likely to get caught in a censorship loop
 
- 4. StripAssistant: (false)
+ 5. StripAssistant: (false)/true
     * might be good if your prompt/jailbreak itself ends with Assistant: 
 
- 5. StripHuman: (false) 
+ 6. StripHuman: (false)/true
     * bad idea without RecycleChats, sends only your very last message
  * @preserve
  */ const Settings = {
+    'AdaptClaude': false,
     'AntiStall': false,
     'ClearFlags': false,
     'RecycleChats': false,
@@ -40,19 +45,28 @@ const Cookie = '';
 const Ip = '127.0.0.1';
 const Port = 8444;
 
+
+
+
+
+
 /**
  * Don't touch StallTriggerMax.
- * If you know what you're doing, change the 2 MB on StallTrigger to what you want
+ * If you know what you're doing, change the 1.5 MB on StallTrigger to what you want
  * @preserve
  */ const StallTriggerMax = 5242880;
 
-const StallTrigger = 2097152;
+const StallTrigger = 1572864;
 
 const {'createServer': Server} = require('node:http');
 const {'createHash': Hash} = require('node:crypto');
 const {'v4': genUUID} = require('uuid');
 const Decoder = new TextDecoder;
 const Encoder = new TextEncoder;
+const Assistant = '\n\nAssistant: ';
+const Human = '\n\nHuman: ';
+const A = '\n\nA: ';
+const H = '\n\nH: ';
 
 const UUIDMap = {};
 const cookies = {};
@@ -69,7 +83,7 @@ const AI = {
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
 const bytesToSize = (bytes = 0) => {
-    const b = [ 'Bytes', 'KB', 'MB', 'GB', 'TB' ];
+    const b = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
     if (0 === bytes) {
         return '0 B';
     }
@@ -78,6 +92,23 @@ const bytesToSize = (bytes = 0) => {
 };
 
 const stallProtected = () => [ '1', '2' ].includes(Settings.AntiStall + '');
+
+const adaptClaude = (text, direction = 'outgoing') => {
+    if (!Settings.AdaptClaude) {
+        return text;
+    }
+    const replacers = {
+        'outgoing': {
+            'H': [ /\n{2}Human:[ ]{1}/gm, H ],
+            'A': [ /\n{2}Assistant:[ ]{1}/gm, A ]
+        },
+        'incoming': {
+            'H': [ /\n{2}H:[ ]{1}/gm, Human ],
+            'A': [ /\n{2}A:[ ]{1}/gm, Assistant ]
+        }
+    };
+    return replacers[direction].H[0].test(text) || replacers[direction].A[0].test(text) ? text.replace(replacers[direction].H[0], replacers[direction].H[1]).replace(replacers[direction].A[0], replacers[direction].A[1]) : text;
+};
 
 const updateCookies = (cookieInfo, initial = false) => {
     let cookieNew = initial ? cookieInfo : cookieInfo.headers?.get('set-cookie');
@@ -112,13 +143,10 @@ const Proxy = Server(((req, res) => {
     }
     setTitle('recv...');
     let recvReader;
-    const abortion = new AbortController;
-    const {'signal': signal} = abortion;
-    res.on('close', (async () => {
-        if (!signal.aborted && false === await (recvReader?.closed)) {
-            console.log('[31mabort[0m');
-            abortion.abort();
-        }
+    const controller = new AbortController;
+    const {'signal': signal} = controller;
+    res.socket.on('close', (async () => {
+        controller.signal.aborted || controller.abort();
     }));
     const buffer = [];
     req.on('data', (chunk => {
@@ -128,7 +156,7 @@ const Proxy = Server(((req, res) => {
         try {
             const body = JSON.parse(Buffer.concat(buffer).toString());
             let {'prompt': prompt} = body;
-            if (!body.stream && '\n\nHuman: \n\nHuman: Hi\n\nAssistant: ' === prompt) {
+            if (!body.stream && prompt === `${Human}${Human}Hi${Assistant}`) {
                 return res.writeHead(200, {
                     'Content-Type': 'application/json'
                 }).end(JSON.stringify({
@@ -138,24 +166,24 @@ const Proxy = Server(((req, res) => {
             const model = /claude-v?2.*/.test(body.model) ? AI.modelA() : body.model;
             !Settings.RecycleChats && Settings.StripHuman && console.log('[33mhaving [1mStripHuman[0m without [1mRecycleChats[0m, not recommended[0m');
             model !== AI.modelA() && console.log(`[33mmodel[0m [1m${AI.modelA()}[0m [33mrecommended[0m`);
-            if (stallProtected() && body.stream) {
-                console.log('[33mwith streaming,[0m [1mAntiStall[0m [33mis disabled[0m');
-                Settings.AntiStall = false;
-            }
+            stallProtected() && body.stream && (Settings.AntiStall = false);
+            stallProtected() || body.stream || console.log('[33mhaving[0m [1mAntiStall[0m [33m at 1 or 2 is good when not streaming[0m')
             /**
              * Ideally SillyTavern would expose a unique frontend conversation_uuid prop to localhost proxies
              * could set the name to a hash of it
              * then fetch /chat_conversations with 'GET' and find it
              * @preserve
-             */            const firstAssistantIdx = prompt.indexOf('\n\nAssistant: ');
+             */;
+            const firstAssistantIdx = prompt.indexOf(Assistant);
             const hash = Hash('sha1');
             hash.update(prompt.substring(0, firstAssistantIdx));
             const sha = Settings.RecycleChats ? hash.digest('hex') : '';
             const uuidOld = UUIDMap[sha];
-            const lastHumanIdx = prompt.lastIndexOf('\n\nHuman: ');
+            const lastHumanIdx = prompt.lastIndexOf(Human);
             Settings.RecycleChats && Settings.StripHuman && uuidOld && lastHumanIdx > -1 && (prompt = prompt.substring(lastHumanIdx, prompt.length));
-            const lastAssistantIdx = prompt.lastIndexOf('\n\nAssistant: ');
+            const lastAssistantIdx = prompt.lastIndexOf(Assistant);
             Settings.StripAssistant && lastAssistantIdx > -1 && (prompt = prompt.substring(0, lastAssistantIdx));
+            prompt = adaptClaude(prompt, 'outgoing');
             if (Settings.RecycleChats && uuidOld) {
                 uuidTemp = uuidOld;
                 console.log(model + ' r');
@@ -202,16 +230,21 @@ const Proxy = Server(((req, res) => {
                 })
             });
             updateCookies(fetchAPI);
-            recvReader = fetchAPI.body?.getReader();
+            recvReader = fetchAPI.body.getReader({
+                'type': 'bytes'
+            });
+            let titleTimer = setInterval((() => setTitle(`recv ${body.stream ? '(s)' : ''} ${bytesToSize(recvLength)}`)), 1e3);
             do {
-                const {'done': done, 'value': chunk} = await recvReader.read();
+                let {'done': done, 'value': chunk} = await recvReader.read();
                 recvLength += chunk?.length || 0;
-                setTitle(`recv ${body.stream ? '(s)' : ''} ${bytesToSize(recvLength)}`);
                 if (validChunk) {
                     break;
                 }
                 if (null != chunk) {
-                    body.stream && res.write(chunk);
+                    if (body.stream) {
+                        Settings.AdaptClaude && (chunk = Encoder.encode(adaptClaude(Decoder.decode(chunk), 'incoming')));
+                        res.write(chunk);
+                    }
                     recvBuffer.push(chunk);
                 }
                 if (done) {
@@ -223,30 +256,38 @@ const Proxy = Server(((req, res) => {
                     try {
                         const triggerEmergency = recvLength >= Math.min(StallTriggerMax, 2 * StallTrigger);
                         if (Settings.AntiStall + '' == '1' || triggerEmergency) {
-                            console.log(`[31mstall: ${triggerEmergency ? 'max' : '1'}[0m`);
-                            abortion.abort('stall 1');
+                            console.log(`[31mstall ${triggerEmergency ? 'max' : '1'}[0m`);
+                            controller.abort('stall 1');
                             break;
                         }
                         const chunkFixed = Decoder.decode(chunk).replace(/^data: {/gi, '{').replace(/\s+$/, '');
                         const chunkParsed = JSON.parse(chunkFixed);
-                        const secondCompletionAssistantIdx = chunkParsed.completion.indexOf('\n\nAssistant: ', chunkParsed.completion.indexOf('\n\nAssistant: ') + 1);
+                        let secondCompletionAssistantIdx = chunkParsed.completion.indexOf(Assistant, chunkParsed.completion.indexOf(Assistant) + 1);
+                        let identifyA = Assistant;
+                        if (secondCompletionAssistantIdx < 0) {
+                            identifyA = A;
+                            secondCompletionAssistantIdx = chunkParsed.completion.indexOf(A, chunkParsed.completion.indexOf(A) + 1);
+                        }
                         if (secondCompletionAssistantIdx < 0) {
                             throw Error('Invalid completion');
                         }
-                        chunkParsed.completion = chunkParsed.completion.substring(secondCompletionAssistantIdx + 13, chunkParsed.completion.length);
-                        const completionHumanIdx = chunkParsed.completion.indexOf('\n\nHuman: ');
+                        chunkParsed.completion = chunkParsed.completion.substring(secondCompletionAssistantIdx + identifyA.length, chunkParsed.completion.length);
+                        let completionHumanIdx = chunkParsed.completion.indexOf(Human);
+                        completionHumanIdx < 0 && (completionHumanIdx = chunkParsed.completion.indexOf(H));
                         if (completionHumanIdx < 0) {
                             throw Error('Invalid completion');
                         }
                         chunkParsed.completion = chunkParsed.completion.substring(0, completionHumanIdx);
-                        chunkParsed.stop || (chunkParsed.stop = '\n\nHuman:');
+                        chunkParsed.stop || (chunkParsed.stop = Human.endsWith(' ') ? Human.slice(0, -1) : Human);
                         validChunk = Encoder.encode(`data: ${JSON.stringify(chunkParsed)}\n\n`);
-                        abortion.abort('stall 2');
-                        console.log('[31mstall: 2[0m');
+                        controller.abort('stall 2');
+                        console.log('[31mstall 2[0m');
                         break;
                     } catch (err) {}
                 }
-            } while (!signal.aborted && !validChunk);
+            } while (!controller.signal.aborted);
+            clearInterval(titleTimer);
+            setTitle(`recv ${body.stream ? '(s)' : ''} ${bytesToSize(recvLength)}`);
             Buffer.concat(recvBuffer);
             const lastChunk = recvBuffer.slice(-1)?.[0];
             const chosenChunk = validChunk || lastChunk;
@@ -260,12 +301,16 @@ const Proxy = Server(((req, res) => {
             if (body.stream) {
                 return res.end();
             }
-            const chunkPlain = Decoder.decode(chosenChunk).replace(/^data: {/gi, '{').replace(/\s+$/, '');
+            const decodedChunk = Decoder.decode(chosenChunk);
+            let chunkPlain = adaptClaude(decodedChunk.replace(/^data: {/gi, '{').replace(/\s+$/, ''));
             res.writeHead(200, {
                 'Content-Type': 'application/json'
             }).end(chunkPlain);
         } catch (err) {
             if ('AbortError' === err.name) {
+                try {
+                    await recvReader.cancel('');
+                } catch (err) {}
                 return res?.end();
             }
             console.error('clewd API error:\n%o', err);
@@ -284,7 +329,7 @@ const Proxy = Server(((req, res) => {
 }));
 
 Proxy.listen(Port, Ip, (async () => {
-    console.log(`[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map((setting => `[1m${setting}:[0m ${Settings[setting]}`)).sort().join('\n')}\n`);
+    console.log(`[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map((setting => `[1m${setting}:[0m [36m${Settings[setting]}[0m`)).sort().join('\n')}\n`);
     const accReq = await fetch(AI.endPoint() + '/api/organizations', {
         'method': 'GET',
         'headers': {

@@ -25,21 +25,27 @@ nodejs>=19.8.*
 
 ### SettingName: (DEFAULT)/opt1/opt2
 
- 1. AntiStall: (false)/1/2
+ 1. AdaptClaude: (false)/true
+    * tries to make human/assistant prompts uniform between endpoints
+    * almost useless with streaming on, effective with streaming off
+    * Human->H
+    * Human<-H
+
+ 2. AntiStall: (false)/1/2
     * pretty much useless when using streaming
     * 1 sends whatever was last when exceeding size (might send empty reply)
-    * 2 returns the second reply by the assistant (the first is usually an apology)
+    * 2 keeps going until it finds something usable or hitting size limit
 
- 2. ClearFlags: (false)
+ 3. ClearFlags: (false)/true
     * possibly snake-oil
 
- 3. RecycleChats: (false)
+ 4. RecycleChats: (false)/true
     * false is less likely to get caught in a censorship loop
 
- 4. StripAssistant: (false)
+ 5. StripAssistant: (false)/true
     * might be good if your prompt/jailbreak itself ends with Assistant: 
 
- 5. StripHuman: (false) 
+ 6. StripHuman: (false)/true
     * bad idea without RecycleChats, sends only your very last message
 
 > [Download](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
