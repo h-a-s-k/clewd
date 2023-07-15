@@ -107,7 +107,7 @@ Server(((req, res) => {
         try {
             const body = JSON.parse(Buffer.concat(buffer).toString());
             let {'prompt': prompt} = body;
-            const model = /claude-v?2.*/.test(body.model) ? AI.modelA() : AI.modelB();
+            const model = AI.modelA();
             /**
              * Ideally SillyTavern would expose a unique frontend conversation_uuid prop to localhost proxies
              * could set the name to a hash of it
