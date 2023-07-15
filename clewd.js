@@ -295,14 +295,13 @@ const Proxy = Server(((req, res) => {
             console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m ${Math.round((chosenChunk?.length || 1) / recvLength * 100)}%\n`);
             if (200 !== fetchAPI.status) {
                 res.writeHead(fetchAPI.status);
-                res.write(Buffer.concat(recvBuffer));
-                return res.end();
+                return body.stream ? res.write(Buffer.concat(recvBuffer)).end() : res.end(Decoder.decode(Buffer.concat(recvBuffer)));
             }
             if (body.stream) {
                 return res.end();
             }
             const decodedChunk = Decoder.decode(chosenChunk);
-            let chunkPlain = adaptClaude(decodedChunk.replace(/^data: {/gi, '{').replace(/\s+$/, ''));
+            let chunkPlain = adaptClaude(decodedChunk.replace(/^data: {/gi, '{').replace(/\s+$/, ''), 'incoming');
             res.writeHead(200, {
                 'Content-Type': 'application/json'
             }).end(chunkPlain);

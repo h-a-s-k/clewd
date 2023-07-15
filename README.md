@@ -2,20 +2,29 @@
 <a href="https://gitgud.io/ahsk/clewd/">
 <h1>Clewd</h1>
   <img
-    height="90"
-    width="90"
+    height="120"
+    width="120"
     alt="Clewd"
+    title="Clewd"
     src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
     align="left"
   />
 </a>
 <a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
 <p>doom & coom</p>
-<img align="center" src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
 </a>
-</div>
+<br>
+<br>
+<br>
+<br>
 
----
+<hr>
+
+<img align="center" src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
+
+<hr>
+
+</div>
 
 ## Requirements
 
