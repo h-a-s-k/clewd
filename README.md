@@ -29,7 +29,7 @@ Warning: Some accounts are getting _hard-blacklisted_ by the **rats**, you might
 
 ## Requirements
 
-nodejs>=19.8.*
+nodejs>=20.4.*
 
 ## Defaults
 

@@ -1,19 +1,17 @@
 {
   "name": "clewd",
-  "version": "1.5",
+  "version": "1.6",
   "description": ":^)",
   "main": "clewd.js",
   "engines": {
-    "node": "19.x"
-  },
-  "dependencies": {
-    "uuid": "^9.0.0"
+    "node": ">=20.4"
   },
   "scripts": {
     "run": "node clewd.js"
   },
   "keywords": [
-    "doom"
+    "doom",
+    "coom"
   ],
   "author": "ahsk",
   "homepage": "https://gitgud.io/ahsk/clewd",
@@ -24,7 +22,6 @@
   "bugs": {
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
-  "devDependencies": {
-    "eslint": "^8.44.0"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }

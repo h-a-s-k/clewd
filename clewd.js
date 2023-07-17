@@ -32,6 +32,7 @@ const Cookie = '';
 
  6. StripHuman: (false)/true
     * bad idea without RecycleChats, sends only your very last message
+
  * @preserve
  */ const Settings = {
     'AdaptClaude': false,
@@ -54,8 +55,7 @@ const Port = 8444;
 const StallTrigger = 1572864;
 
 const {'createServer': Server, 'IncomingMessage': IncomingMessage, 'ServerResponse': ServerResponse} = require('node:http');
-const {'createHash': Hash} = require('node:crypto');
-const {'v4': genUUID} = require('uuid');
+const {'createHash': Hash, 'randomUUID': UUID} = require('node:crypto');
 
 const Decoder = new TextDecoder;
 const Encoder = new TextEncoder;
@@ -70,8 +70,8 @@ const cookies = {};
 let uuidTemp;
 let uuidOrg;
 
-ServerResponse.prototype.json = function(statusCode = 200, body, headers = {}) {
-    this.writeHead(statusCode, {
+ServerResponse.prototype.json = function(body, statusCode = 200, headers) {
+    this.headersSent || this.writeHead(statusCode, {
         'Content-Type': 'application/json',
         ...headers && headers
     });
@@ -119,7 +119,7 @@ const bytesToSize = (bytes = 0) => {
     return 0 === c ? `${bytes} ${b[c]}` : `${(bytes / 1024 ** c).toFixed(1)} ${b[c]}`;
 };
 
-const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/, '');
+const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
 
 const stallProtected = () => [ '1', '2' ].includes(Settings.AntiStall + '');
 
@@ -163,14 +163,14 @@ const setTitle = title => {
 
 const Proxy = Server(((req, res) => {
     if ('/v1/complete' !== req.url) {
-        return res.json(404, {
+        return res.json({
             'error': {
                 'message': '404 Not Found',
                 'type': 404,
                 'param': null,
-                'code': 500
+                'code': 404
             }
-        });
+        }, 404);
     }
     setTitle('recv...');
     let fetchAPI;
@@ -190,11 +190,9 @@ const Proxy = Server(((req, res) => {
             const body = JSON.parse(Buffer.concat(buffer).toString());
             let {'prompt': prompt} = body;
             if (!body.stream && prompt === `${Human}${Human}Hi${Assistant}`) {
-                return res.writeHead(200, {
-                    'Content-Type': 'application/json'
-                }).end(JSON.stringify({
+                return res.json({
                     'error': false
-                }));
+                });
             }
             const model = /claude-v?2.*/.test(body.model) ? AI.modelA() : body.model;
             !Settings.RecycleChats && Settings.StripHuman && console.log('[33mhaving [1mStripHuman[0m without [1mRecycleChats[0m, not recommended[0m');
@@ -220,7 +218,7 @@ const Proxy = Server(((req, res) => {
                 uuidTemp = uuidOld;
                 console.log(model + ' r');
             } else {
-                uuidTemp = genUUID().toString();
+                uuidTemp = UUID().toString();
                 fetchAPI = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
                     'signal': signal,
                     'headers': {
@@ -305,14 +303,17 @@ const Proxy = Server(((req, res) => {
             setTitle(`${fetchAPI.status}! ${bytesToSize(recvLength)}`);
             console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m ${Math.round((chosenChunk?.length || 1) / recvLength * 100)}%\n`);
             if (200 !== fetchAPI.status) {
-                return body.stream ? res.writeHead(fetchAPI.status).write(Buffer.concat(recvBuffer), (() => res.end())) : res.json(Decoder.decode(Buffer.concat(recvBuffer)));
+                res.headersSent || res.writeHead(fetchAPI.status, {
+                    'Content-Type': 'application/json'
+                });
+                return body.stream ? res.write(Buffer.concat(recvBuffer), (() => res.end())) : res.json(Decoder.decode(Buffer.concat(recvBuffer)));
             }
             if (body.stream) {
                 return res.end();
             }
             const decodedChunk = Decoder.decode(chosenChunk);
             const chunkPlain = adaptClaude(cleanJSON(decodedChunk), 'incoming');
-            res.json(fetchAPI.status, chunkPlain);
+            res.json(chunkPlain, fetchAPI.status);
         } catch (err) {
             if ('AbortError' === err.name) {
                 try {
@@ -321,14 +322,14 @@ const Proxy = Server(((req, res) => {
                 return res?.end();
             }
             console.error('clewd API error:\n%o', err);
-            res.json(500, {
+            res.json({
                 'error': {
                     'message': err.message || err.name,
                     'type': err.type || err.code || err.name,
                     'param': null,
                     'code': 500
                 }
-            });
+            }, 500);
         } finally {
             clearInterval(titleTimer);
         }
