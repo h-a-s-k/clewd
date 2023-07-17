@@ -10,18 +10,19 @@
     align="left"
   />
 </a>
-<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
-<p>doom & coom</p>
-</a>
-<br>
-<br>
-<br>
+
+doom & coom
+
 <br>
 
+Warning: Some accounts are getting _hard-blacklisted_ by the **rats**, you might notice it
+
+<br>
+<br>
 <hr>
-
-<img align="center" src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
-
+<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
+   <img src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
+</a>
 <hr>
 
 </div>
@@ -36,12 +37,13 @@ nodejs>=19.8.*
 
  1. AdaptClaude: (false)/true
     * tries to make human/assistant prompts uniform between endpoints
-    * almost useless with streaming on, effective with streaming off
+    * almost useless with streaming on... for now ;)
+    * effective with streaming off
     * Human->H
     * Human<-H
 
  2. AntiStall: (false)/1/2
-    * pretty much useless when using streaming
+    * no effect when using streaming
     * 1 sends whatever was last when exceeding size (might send empty reply)
     * 2 keeps going until it finds something usable or hitting size limit
 
