@@ -31,6 +31,8 @@ Warning: Some accounts are getting _hard-blacklisted_ by the **rats**, you might
 
 nodejs>=20.4.*
 
+---
+
 ## Defaults
 
 ### SettingName: (DEFAULT)/opt1/opt2
@@ -59,4 +61,22 @@ nodejs>=20.4.*
  6. StripHuman: (false)/true
     * bad idea without RecycleChats, sends only your very last message
 
-> [Download](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
+---
+
+## FAQ
+> I get empty replies
+
+They send broken replies VERY often. If you have AntiStall set to false/1, once clewd receives ALL/hits the limit of claude's fever dream, it will send that shit to SillyTavern, IF it's broken, SillyTavern will error out and there will be no message
+
+> I keep getting H:
+
+This can be a character issue, a main prompt issue, a jailbreak issue or even claude itself, AdaptClaude is there to try to make shit more consistent
+
+> What about context/temperature/top_k/top_p
+None of it is sent, some experimental shit will come out soon™ though
+
+> What about the flags
+
+Only `consumer_restricted_mode` is the real bad one from what I've seen. If you get *the yellow warning* though, you'll know your account is *possibly* toast
+
+> ### [Download Clewd 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
