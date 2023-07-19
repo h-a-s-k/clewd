@@ -20,8 +20,8 @@ Warning: Some accounts are getting _hard-blacklisted_ by the **rats**, you might
 <br>
 <br>
 <hr>
-<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
-   <img src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
+<a href="https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip">
+   <img src="https://gitgud.io/ahsk/clewd/-/raw/1.6/program.png">
 </a>
 <hr>
 
@@ -79,4 +79,4 @@ None of it is sent, some experimental shit will come out soon™ though
 
 Only `consumer_restricted_mode` is the real bad one from what I've seen. If you get *the yellow warning* though, you'll know your account is *possibly* toast
 
-> ### [Download Clewd 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
+> ### [Download 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
