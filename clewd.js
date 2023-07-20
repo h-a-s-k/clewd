@@ -4,8 +4,6 @@
  */
 const Cookie = '';
 
-
-
 /**
 ## EXPERIMENTAL
 
@@ -92,6 +90,7 @@ const Encoder = new TextEncoder;
 
 const Assistant = '\n\nAssistant: ';
 const Human = '\n\nHuman: ';
+
 const A = '\n\nA: ';
 const H = '\n\nH: ';
 
@@ -173,7 +172,7 @@ const updateCookies = cookieInfo => {
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
 const setTitle = title => {
-    title = 'clewd v2.2 - ' + title;
+    title = 'clewd v2.3 - ' + title;
     process.title !== title && (process.title = title);
 };
 
@@ -394,10 +393,7 @@ const Proxy = Server(((req, res) => {
                 });
                 prompt = '';
             }
-            if (retryingMessage || uuidOld) {
-                uuidTemp = uuidOld;
-                retryingMessage && Settings.RecycleChats ? console.log(model + ' [rR]') : retryingMessage ? console.log(model + ' [r]') : Settings.RecycleChats ? console.log(model + ' [R]') : console.log('' + model);
-            } else {
+            if (!uuidOld && Settings.RecycleChats || !retryingMessage) {
                 uuidTemp = UUID().toString();
                 fetchAPI = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
                     signal: signal,
@@ -414,6 +410,9 @@ const Proxy = Server(((req, res) => {
                 updateCookies(fetchAPI);
                 console.log('' + model);
                 UUIDMap[sha] = uuidTemp;
+            } else {
+                uuidTemp = uuidOld;
+                retryingMessage && Settings.RecycleChats ? console.log(model + ' [rR]') : retryingMessage ? console.log(model + ' [r]') : Settings.RecycleChats ? console.log(model + ' [R]') : console.log('' + model);
             }
             fetchAPI = await fetch(`${AI.endPoint()}${retryingMessage ? '/api/retry_message' : '/api/append_message'}`, {
                 signal: signal,
