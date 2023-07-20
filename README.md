@@ -72,10 +72,10 @@ nodejs>=20.4.*
     * reuses the same chat on the website, based on the first prompt
     * false is less likely to get caught in a censorship loop
 
- 8. RetryRegenerate: (true)/false
+ 8. RetryRegenerate: (false)/true
     * uses the AI's own retry mechanism when you regenerate on your frontend
     * instead of a new conversation
-    * experiment before setting to false
+    * experiment with it
 
  9. StripAssistant: (false)/true
     * might be good IF your prompt/jailbreak itself ends with Assistant: 
