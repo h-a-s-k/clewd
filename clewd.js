@@ -25,51 +25,44 @@ const Cookie = '';
  3. ClearFlags: (false)/true
     * possibly snake-oil
 
- 4. DeleteChats: (false)/true
-    * auto deletes your conversations after each reply
-    * **if set to true, will also wipe old conversations on startup!**
-    * no effect if RetryRegenerate is set to true
-
- 5. PassParams: (false)/true
+ 4. PassParams: (false)/true
     * true will send the temperature you set on your frontent
     * only values under <=1
     * this could get your account banned
     * if clewd stops working, set to false
 
- 6. PreventImperson: (true)/false
+ 5. PreventImperson: (true)/false
     * trims the bot reply immediately if he says "Human:" or "H:"
     * making it so it doesn't hallucinate speaking as you (chance of missing some spicy things)
     * it's probable this will trigger before AntiStall if you have that on
 
- 7. PromptExperiment: (true)/false
+ 6. PromptExperiment: (true)/false
     * an alternative way to send your prompt to the AI
     * experiment before setting to false
 
- 8. RecycleChats: (false)/true
+ 7. RecycleChats: (false)/true
     * reuses the same chat on the website, based on the first prompt
     * false is less likely to get caught in a censorship loop
 
- 9. RetryRegenerate: (false)/true
+ 8. RetryRegenerate: (false)/true
     * uses the AI's own retry mechanism when you regenerate on your frontend
     * instead of a new conversation
     * experiment with it
 
- 10. StripAssistant: (false)/true
+ 9. StripAssistant: (false)/true
     * might be good IF your prompt/jailbreak itself ends with Assistant: 
 
- 11. StripHuman: (false)/true
+ 10. StripHuman: (false)/true
     * bad idea without RecycleChats, sends only your very last message
 
  * @preserve
- */
-const Settings = {
-    AdaptClaude: false,
-    AntiStall: 1,
-    ClearFlags: true,
-    DeleteChats: false,
+ */ const Settings = {
+    AdaptClaude: true,
+    AntiStall: false,
+    ClearFlags: false,
     PassParams: false,
     PreventImperson: true,
-    PromptExperiment: true,
+    PromptExperiment: false,
     RecycleChats: false,
     RetryRegenerate: false,
     StripAssistant: false,
@@ -83,17 +76,9 @@ const Port = 8444;
  * Don't touch StallTriggerMax.
  * If you know what you're doing, change the 1.5 MB on StallTrigger to what you want
  * @preserve
- */
-const StallTriggerMax = 4194304;
-const StallTrigger = 1572864;
+ */ const StallTriggerMax = 4194304;
 
-/**
- * How much will be buffered before one stream chunk goes through
- * lower = less chance of AdaptClaude working properly
- * @default 25
- * @preserve
- */
-const BufferSize = 25;
+const StallTrigger = 1572864;
 
 const {createServer: Server, IncomingMessage: IncomingMessage, ServerResponse: ServerResponse} = require('node:http');
 const {createHash: Hash, randomUUID: UUID, randomInt: randomInt, randomBytes: randomBytes} = require('node:crypto');
@@ -105,6 +90,7 @@ const Encoder = new TextEncoder;
 
 const Assistant = '\n\nAssistant: ';
 const Human = '\n\nHuman: ';
+
 const A = '\n\nA: ';
 const H = '\n\nH: ';
 
@@ -112,7 +98,6 @@ const cookies = {};
 const UUIDMap = {};
 let uuidTemp;
 let uuidOrg;
-
 let lastPrompt;
 
 ServerResponse.prototype.json = function(body, statusCode = 200, headers) {
@@ -138,14 +123,14 @@ const fileName = () => {
 
 const findHuman = (text, last = false) => {
     const humanArray = [ last ? text.lastIndexOf(Human) : text.indexOf(Human), last ? text.lastIndexOf(H) : text.indexOf(H) ].filter((location => location > -1)).sort();
-    const location = humanArray?.[last ? '' + (humanArray.length - 1) : '0'];
-    return void 0 !== location ? location : null;
+    const location = humanArray?.[last ? humanArray.length - 1 : 0] || -1;
+    return location >= 0 ? location : null;
 };
 
 const findAssistant = (text, last = false) => {
     const assistantArray = [ last ? text.lastIndexOf(Assistant) : text.indexOf(Assistant), last ? text.lastIndexOf(A) : text.indexOf(A) ].filter((location => location > -1)).sort();
-    const location = assistantArray?.[last ? '' + (assistantArray.length - 1) : '0'];
-    return void 0 !== location ? location : null;
+    const location = assistantArray?.[last ? assistantArray.length - 1 : 0] || -1;
+    return location >= 0 ? location : null;
 };
 
 const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
@@ -186,19 +171,8 @@ const updateCookies = cookieInfo => {
 
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
-const deleteChat = async uuid => {
-    const res = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
-        headers: {
-            Cookie: getCookies(),
-            'Content-Type': 'application/json'
-        },
-        method: 'DELETE'
-    });
-    updateCookies(res);
-};
-
 const setTitle = title => {
-    title = 'clewd v2.4 - ' + title;
+    title = 'clewd v2.3 - ' + title;
     process.title !== title && (process.title = title);
 };
 
@@ -436,10 +410,6 @@ const Proxy = Server(((req, res) => {
                 updateCookies(fetchAPI);
                 console.log('' + model);
                 UUIDMap[sha] = uuidTemp;
-                if (Settings.DeleteChats && !Settings.RetryRegenerate) {
-                    await deleteChat(uuidTemp);
-                    delete UUIDMap[sha];
-                }
             } else {
                 uuidTemp = uuidOld;
                 retryingMessage && Settings.RecycleChats ? console.log(model + ' [rR]') : retryingMessage ? console.log(model + ' [r]') : Settings.RecycleChats ? console.log(model + ' [R]') : console.log('' + model);
@@ -472,7 +442,7 @@ const Proxy = Server(((req, res) => {
             if (200 !== fetchAPI.status) {
                 return fetchAPI.body.pipeTo(response);
             }
-            const clewdStream = new ClewdStream(BufferSize, model, true === body.stream);
+            const clewdStream = new ClewdStream(25, model, true === body.stream);
             titleTimer = setInterval((() => setTitle(`recv${true === body.stream ? ' (s)' : ''} ${((bytes = 0) => {
                 const b = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
                 if (0 === bytes) {
@@ -506,13 +476,13 @@ const Proxy = Server(((req, res) => {
 }));
 
 Proxy.listen(Port, Ip, (async () => {
-    const accRes = await fetch(AI.endPoint() + '/api/organizations', {
+    const accReq = await fetch(AI.endPoint() + '/api/organizations', {
         method: 'GET',
         headers: {
             Cookie: Cookie
         }
     });
-    const accInfo = (await accRes.json())?.[0];
+    const accInfo = (await accReq.json())?.[0];
     if (!accInfo || accInfo.error) {
         throw Error('Couldn\'t get account info ' + (accInfo?.error ? accInfo.error.message : 'have you set your cookie?'));
     }
@@ -521,8 +491,8 @@ Proxy.listen(Port, Ip, (async () => {
     }
     setTitle('ok');
     updateCookies(Cookie);
-    updateCookies(accRes);
-    console.log(`[2mclewd v2.4[0m\n[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map((setting => `[1m${setting}:[0m [36m${Settings[setting]}[0m`)).sort().join('\n')}\n`);
+    updateCookies(accReq);
+    console.log(`[2mclewd v2.2[0m\n[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map((setting => `[1m${setting}:[0m [36m${Settings[setting]}[0m`)).sort().join('\n')}\n`);
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
         capabilities: accInfo.capabilities
@@ -547,20 +517,15 @@ Proxy.listen(Port, Ip, (async () => {
             console.log(`${flag}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag))));
     }
-    if (Settings.RecycleChats || Settings.DeleteChats) {
-        const convRes = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
+    if (Settings.RecycleChats) {
+        const convReq = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
             method: 'GET',
             headers: {
                 Cookie: getCookies()
             }
         });
-        const conversations = await convRes.json();
-        conversations.filter((chat => chat.name.length > 0)).forEach((chat => UUIDMap[chat.name] = chat.uuid));
-        updateCookies(convRes);
-        if (Settings.DeleteChats && conversations.length > 0) {
-            console.log(`wiping ${conversations.length} old chats`);
-            await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
-        }
+        (await convReq.json()).filter((chat => chat.name.length > 0)).forEach((chat => UUIDMap[chat.name] = chat.uuid));
+        updateCookies(convReq);
     }
 }));
 
