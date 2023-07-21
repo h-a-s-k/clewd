@@ -408,8 +408,8 @@ const Proxy = Server(((req, res) => {
             hash.update(prompt.substring(0, firstAssistantIdx));
             const sha = Settings.RecycleChats ? hash.digest('hex') : '';
             const uuidOld = UUIDMap[sha];
-            Settings.StripHuman && lastHumanIdx && uuidOld && (prompt = prompt.substring(lastHumanIdx, prompt.length));
-            Settings.StripAssistant && lastAssistantIdx && (prompt = prompt.substring(0, lastAssistantIdx));
+            Settings.StripHuman && lastHumanIdx !== null && uuidOld && (prompt = prompt.substring(lastHumanIdx, prompt.length));
+            Settings.StripAssistant && lastAssistantIdx !== null && (prompt = prompt.substring(0, lastAssistantIdx));
             prompt = adaptClaude(prompt, 'outgoing');
             if (Settings.PromptExperiment && !retryingMessage) {
                 attachments.push({
