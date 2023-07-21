@@ -62,7 +62,7 @@ const Cookie = '';
 
  * @preserve
  */
- const Settings = {
+const Settings = {
     AdaptClaude: true,
     AntiStall: 1,
     ClearFlags: false,
@@ -110,10 +110,8 @@ const H = '\n\nH: ';
 
 const cookies = {};
 const UUIDMap = {};
-
 let uuidTemp;
 let uuidOrg;
-
 let lastPrompt;
 
 ServerResponse.prototype.json = function(body, statusCode = 200, headers) {
@@ -137,16 +135,16 @@ const fileName = () => {
     return randomBytes(bytes).toString('hex') + '.txt';
 };
 
-const findHuman = (text, last = false) => {
+const indexOfH = (text, last = false) => {
     const humanArray = [ last ? text.lastIndexOf(Human) : text.indexOf(Human), last ? text.lastIndexOf(H) : text.indexOf(H) ].filter((location => location > -1)).sort();
     const location = humanArray?.[last ? '' + (humanArray.length - 1) : '0'];
-    return void 0 !== location ? location : null;
+    return void 0 === location ? -1 : location;
 };
 
-const findAssistant = (text, last = false) => {
+const indexOfA = (text, last = false) => {
     const assistantArray = [ last ? text.lastIndexOf(Assistant) : text.indexOf(Assistant), last ? text.lastIndexOf(A) : text.indexOf(A) ].filter((location => location > -1)).sort();
     const location = assistantArray?.[last ? '' + (assistantArray.length - 1) : '0'];
-    return void 0 !== location ? location : null;
+    return void 0 === location ? -1 : location;
 };
 
 const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
@@ -293,9 +291,9 @@ class ClewdStream extends TransformStream {
         const validCompletion = this.#compAll.find((completion => completion.indexOf(H) > -1 || completion.indexOf(Human) > -1));
         if (validCompletion) {
             this.#compLast = validCompletion;
-            const fakeHuman = findHuman(validCompletion);
+            const fakeHuman = indexOfH(validCompletion);
             console.log('[31mstall: 2[0m');
-            controller.enqueue(this.#build(fakeHuman));
+            controller.enqueue(this.#build(fakeHuman > -1 ? fakeHuman : validCompletion.length));
             return controller.terminate();
         }
     }
@@ -304,9 +302,9 @@ class ClewdStream extends TransformStream {
             return;
         }
         let cutLimit = completion.length;
-        const fakeHumanPrompt = findHuman(completion);
-        if (null !== fakeHumanPrompt) {
-            cutLimit = fakeHumanPrompt;
+        const fakeHuman = indexOfH(completion);
+        if (fakeHuman > -1) {
+            cutLimit = fakeHuman;
             this.#print();
             console.log(`[33mimpersonation, dropped:[0m [4m${completion.substring(cutLimit, completion.length).split('\n').join(' ')}[0m`);
             controller.enqueue(this.#build(cutLimit));
@@ -396,9 +394,9 @@ const Proxy = Server(((req, res) => {
             const model = /claude-v?2.*/.test(body.model) ? AI.modelA() : body.model;
             model !== AI.modelA() && console.log(`[33mmodel[0m [1m${AI.modelA()}[0m [33mrecommended[0m`);
             stallProtected() || body.stream || Settings.PreventImperson || console.log('[33mhaving[0m [1mPreventImperson[0m: true or [1mAntiStall[0m [33m: 1/2 is good when not streaming[0m');
-            const firstAssistantIdx = findAssistant(prompt);
-            const lastAssistantIdx = findAssistant(prompt, true);
-            const lastHumanIdx = findHuman(prompt, true);
+            const firstAssistantIdx = indexOfA(prompt);
+            const lastAssistantIdx = indexOfA(prompt, true);
+            const lastHumanIdx = indexOfH(prompt, true);
             /**
              * Ideally SillyTavern would expose a unique frontend conversation_uuid prop to localhost proxies
              * could set the name to a hash of it
@@ -408,8 +406,8 @@ const Proxy = Server(((req, res) => {
             hash.update(prompt.substring(0, firstAssistantIdx));
             const sha = Settings.RecycleChats ? hash.digest('hex') : '';
             const uuidOld = UUIDMap[sha];
-            Settings.StripHuman && lastHumanIdx !== null && uuidOld && (prompt = prompt.substring(lastHumanIdx, prompt.length));
-            Settings.StripAssistant && lastAssistantIdx !== null && (prompt = prompt.substring(0, lastAssistantIdx));
+            Settings.StripHuman && lastHumanIdx > -1 && uuidOld && (prompt = prompt.substring(lastHumanIdx, prompt.length));
+            Settings.StripAssistant && lastAssistantIdx > -1 && (prompt = prompt.substring(0, lastAssistantIdx));
             prompt = adaptClaude(prompt, 'outgoing');
             if (Settings.PromptExperiment && !retryingMessage) {
                 attachments.push({
