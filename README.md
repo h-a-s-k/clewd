@@ -53,35 +53,39 @@ nodejs>=20.4.*
  3. ClearFlags: (false)/true
     * possibly snake-oil
 
- 4. PassParams: (false)/true
+ 4. DeleteChats: (false)/true
+    * for privacy, auto deletes your conversations after each reply
+    * **if set to true, will also wipe old conversations on startup!**
+    * no effect if RetryRegenerate is set to true
+
+ 5. PassParams: (false)/true
     * true will send the temperature you set on your frontent
     * only values under <=1
     * this could get your account banned
     * if clewd stops working, set to false
 
- 5. PreventImperson: (true)/false
+ 6. PreventImperson: (true)/false
     * trims the bot reply immediately if he says "Human:" or "H:"
     * making it so it doesn't hallucinate speaking as you (chance of missing some spicy things)
     * it's probable this will trigger before AntiStall if you have that on
 
- 6. PromptExperiment: (true)/false
+ 7. PromptExperiment: (true)/false
     * an alternative way to send your prompt to the AI
     * experiment before setting to false
-	* example of PromptExperiment + RetryRegenerate: https://files.catbox.moe/io1q53.webm
 
- 7. RecycleChats: (false)/true
+ 8. RecycleChats: (false)/true
     * reuses the same chat on the website, based on the first prompt
     * false is less likely to get caught in a censorship loop
 
- 8. RetryRegenerate: (false)/true
+ 9. RetryRegenerate: (false)/true
     * uses the AI's own retry mechanism when you regenerate on your frontend
     * instead of a new conversation
     * experiment with it
 
- 9. StripAssistant: (false)/true
+ 10. StripAssistant: (false)/true
     * might be good IF your prompt/jailbreak itself ends with Assistant: 
 
- 10. StripHuman: (false)/true
+ 11. StripHuman: (false)/true
     * bad idea without RecycleChats, sends only your very last message
 
 ---
