@@ -67,6 +67,7 @@ nodejs>=20.4.*
  6. PromptExperiment: (true)/false
     * an alternative way to send your prompt to the AI
     * experiment before setting to false
+	* example of PromptExperiment + RetryRegenerate: https://files.catbox.moe/io1q53.webm
 
  7. RecycleChats: (false)/true
     * reuses the same chat on the website, based on the first prompt
