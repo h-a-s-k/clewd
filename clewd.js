@@ -110,8 +110,10 @@ const H = '\n\nH: ';
 
 const cookies = {};
 const UUIDMap = {};
+
 let uuidTemp;
 let uuidOrg;
+
 let lastPrompt;
 
 ServerResponse.prototype.json = function(body, statusCode = 200, headers) {
@@ -136,15 +138,17 @@ const fileName = () => {
 };
 
 const indexOfH = (text, last = false) => {
-    const humanArray = [ last ? text.lastIndexOf(Human) : text.indexOf(Human), last ? text.lastIndexOf(H) : text.indexOf(H) ].filter((location => location > -1)).sort();
-    const location = humanArray?.[last ? '' + (humanArray.length - 1) : '0'];
-    return void 0 === location ? -1 : location;
+    let location = -1;
+    const matchesH = text.match(/[\n]{1,}(Human|H):[\s]*?/gm);
+    matchesH?.length > 0 && (location = last ? text.lastIndexOf(matchesH[matchesH.length - 1]) : text.indexOf(matchesH[0]));
+    return location;
 };
 
 const indexOfA = (text, last = false) => {
-    const assistantArray = [ last ? text.lastIndexOf(Assistant) : text.indexOf(Assistant), last ? text.lastIndexOf(A) : text.indexOf(A) ].filter((location => location > -1)).sort();
-    const location = assistantArray?.[last ? '' + (assistantArray.length - 1) : '0'];
-    return void 0 === location ? -1 : location;
+    let location = -1;
+    const matchesA = text.match(/[\n]{1,}(Assistant|A):[\s]*?/gm);
+    matchesA?.length > 0 && (location = last ? text.lastIndexOf(matchesA[matchesA.length - 1]) : text.indexOf(matchesA[0]));
+    return location;
 };
 
 const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
@@ -238,6 +242,9 @@ class ClewdStream extends TransformStream {
     }
     get total() {
         return this.valid + this.invalid;
+    }
+    get broken() {
+        return (this.invalid / this.total * 100).toFixed(2) + '%';
     }
     get censored() {
         return this.#hardCensor;
@@ -478,7 +485,7 @@ const Proxy = Server(((req, res) => {
             })(clewdStream.size)}`)), 300);
             await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
             clewdStream.censored && console.log('[33mlikely your account is hard-censored[0m');
-            console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m${true === retryingMessage ? ' [r]' : ''}${true === body.stream ? ' (s)' : ''} ${(clewdStream.invalid / clewdStream.total * 100).toFixed(2)}% broken\n`);
+            console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m${true === retryingMessage ? ' [r]' : ''}${true === body.stream ? ' (s)' : ''} ${clewdStream.broken} broken\n`);
             clewdStream.empty();
             if (Settings.DeleteChats && !Settings.RetryRegenerate && !Settings.RecycleChats) {
                 await deleteChat(uuidTemp);
