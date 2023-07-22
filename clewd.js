@@ -549,6 +549,7 @@ Proxy.listen(Port, Ip, (async () => {
                 method: 'POST'
             });
             updateCookies(req);
+
             const json = await req.json();
             console.log(`${flag}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag))));
