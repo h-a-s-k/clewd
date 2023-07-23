@@ -40,11 +40,11 @@ nodejs>=20.4.*
  1. AdaptClaude: (false)/true
     * tries to make human/assistant prompts uniform between endpoints
     * effective both with streaming on and off now
+    * __true *might* be bad for jailbreaks__, as no Assistant/Human is sent and it might be seen as sample dialogue instead of a direct order [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
     - Human->H
     - Human<-H
     - Assistant->A
     - Assistant<-A
-    * __true *might* be bad for jailbreaks__, as no Assistant/Human is sent and it might be seen as sample dialogue instead of a direct order [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
 
  2. AntiStall: (false)/1/2
     * no effect when using streaming

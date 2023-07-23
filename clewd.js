@@ -10,16 +10,16 @@ const Cookie = '';
 ### SettingName: (DEFAULT)/opt1/opt2
 
  1. AdaptClaude: (false)/true
-    * tries to make human/assistant prompts uniform between endpoints
+    * true tries to make human/assistant prompts uniform between endpoints
     * effective both with streaming on and off now
+    * __true *might* be bad for jailbreaks__, as no Assistant/Human is sent and it might be seen as sample dialogue instead of a direct order [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
     - Human->H
     - Human<-H
     - Assistant->A
     - Assistant<-A
-    * __true *might* be bad for jailbreaks__, as no Assistant/Human is sent and it might be seen as sample dialogue instead of a direct order [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
 
  2. AntiStall: (false)/1/2
-    * no effect when using streaming
+    * 1/2 has no effect when using streaming
     * 1 sends whatever was last when exceeding size (might have some spicy things but impersonations as well)
     * 2 sends a usable message where the bot actually stopped talking
 
@@ -27,7 +27,7 @@ const Cookie = '';
     * possibly snake-oil
 
  4. DeleteChats: (false)/true
-    * for privacy, auto deletes your conversations after each reply
+    * true is for privacy, auto deletes your conversations after each reply
     * **if set to true, will also wipe old conversations on startup!**
     * no effect if RetryRegenerate is set to true
 
@@ -37,29 +37,29 @@ const Cookie = '';
     * this could get your account banned
     * if clewd stops working, set to false
 
- 6. PreventImperson: (true)/false
-    * trims the bot reply immediately if he says "Human:" or "H:"
-    * making it so it doesn't hallucinate speaking as you (chance of missing some spicy things)
+ 6. PreventImperson: (false)/true
+    * true trims the bot reply immediately if he says "Human:" or "H:"
+    * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
     * it's probable this will trigger before AntiStall if you have that on
 
  7. PromptExperiment: (true)/false
-    * an alternative way to send your prompt to the AI
+    * true is an alternative way to send your prompt to the AI
     * experiment before setting to false
 
  8. RecycleChats: (false)/true
-    * reuses the same chat on the website, based on the first prompt
+    * true reuses the same chat on the website, based on the first prompt
     * false is less likely to get caught in a censorship loop
 
  9. RetryRegenerate: (false)/true
-    * uses the AI's own retry mechanism when you regenerate on your frontend
+    * true uses the AI's own retry mechanism when you regenerate on your frontend
     * instead of a new conversation
     * experiment with it
 
  10. StripAssistant: (false)/true
-    * might be good IF your prompt/jailbreak itself ends with Assistant: 
+    * true might be good IF your prompt/jailbreak itself ends with Assistant: 
 
  11. StripHuman: (false)/true
-    * bad idea without RecycleChats, sends only your very last message
+    * true is a bad idea without RecycleChats, sends only your very last message
 
  * @preserve
  */
@@ -69,7 +69,7 @@ const Settings = {
     ClearFlags: false,
     DeleteChats: false,
     PassParams: false,
-    PreventImperson: true,
+    PreventImperson: false,
     PromptExperiment: true,
     RecycleChats: false,
     RetryRegenerate: false,
@@ -97,7 +97,7 @@ const StallTrigger = 1572864;
 const BufferSize = 25;
 
 const {createServer: Server, IncomingMessage: IncomingMessage, ServerResponse: ServerResponse} = require('node:http');
-const {createHash: Hash, randomUUID: UUID, randomInt: randomInt, randomBytes: randomBytes} = require('node:crypto');
+const {createHash: Hash, randomUUID: randomUUID, randomInt: randomInt, randomBytes: randomBytes} = require('node:crypto');
 const {TransformStream: TransformStream} = require('node:stream/web');
 const {Writable: Writable} = require('node:stream');
 
@@ -106,6 +106,7 @@ const Encoder = new TextEncoder;
 
 const Assistant = '\n\nAssistant: ';
 const Human = '\n\nHuman: ';
+
 const A = '\n\nA: ';
 const H = '\n\nH: ';
 
@@ -202,7 +203,7 @@ const deleteChat = async uuid => {
 };
 
 const setTitle = title => {
-    title = 'clewd v2.4 - ' + title;
+    title = 'clewd v2.5 - ' + title;
     process.title !== title && (process.title = title);
 };
 
@@ -387,6 +388,7 @@ const Proxy = Server(((req, res) => {
     }));
     req.on('end', (async () => {
         let titleTimer;
+        let promptSHA;
         try {
             const body = JSON.parse(Buffer.concat(buffer).toString());
             const attachments = [];
@@ -412,8 +414,8 @@ const Proxy = Server(((req, res) => {
              * @preserve
              */            const hash = Hash('sha1');
             hash.update(prompt.substring(0, firstAssistantIdx));
-            const sha = Settings.RecycleChats ? hash.digest('hex') : '';
-            const uuidOld = UUIDMap[sha];
+            promptSHA = Settings.RecycleChats ? hash.digest('hex') : '';
+            const uuidOld = UUIDMap[promptSHA];
             Settings.StripHuman && lastHumanIdx > -1 && uuidOld && (prompt = prompt.substring(lastHumanIdx, prompt.length));
             Settings.StripAssistant && lastAssistantIdx > -1 && (prompt = prompt.substring(0, lastAssistantIdx));
             prompt = adaptClaude(prompt, 'outgoing');
@@ -427,7 +429,7 @@ const Proxy = Server(((req, res) => {
                 prompt = '';
             }
             if (!uuidOld && Settings.RecycleChats || !retryingMessage) {
-                uuidTemp = UUID().toString();
+                uuidTemp = randomUUID().toString();
                 fetchAPI = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
                     signal: signal,
                     headers: {
@@ -437,12 +439,12 @@ const Proxy = Server(((req, res) => {
                     method: 'POST',
                     body: JSON.stringify({
                         uuid: uuidTemp,
-                        name: sha
+                        name: promptSHA
                     })
                 });
                 updateCookies(fetchAPI);
                 console.log('' + model);
-                UUIDMap[sha] = uuidTemp;
+                UUIDMap[promptSHA] = uuidTemp;
             } else {
                 uuidTemp = uuidOld;
                 retryingMessage && Settings.RecycleChats ? console.log(model + ' [rR]') : retryingMessage ? console.log(model + ' [r]') : Settings.RecycleChats ? console.log(model + ' [R]') : console.log('' + model);
@@ -488,10 +490,6 @@ const Proxy = Server(((req, res) => {
             clewdStream.censored && console.log('[33mlikely your account is hard-censored[0m');
             console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m${true === retryingMessage ? ' [r]' : ''}${true === body.stream ? ' (s)' : ''} ${clewdStream.broken} broken\n`);
             clewdStream.empty();
-            if (Settings.DeleteChats && !Settings.RetryRegenerate && !Settings.RecycleChats) {
-                await deleteChat(uuidTemp);
-                delete UUIDMap[sha];
-            }
         } catch (err) {
             if ('AbortError' === err.name) {
                 return res.end();
@@ -508,6 +506,12 @@ const Proxy = Server(((req, res) => {
         } finally {
             clearInterval(titleTimer);
             titleTimer = null;
+            if (Settings.DeleteChats && !Settings.RetryRegenerate && !Settings.RecycleChats) {
+                try {
+                    await deleteChat(uuidTemp);
+                } catch (err) {}
+                delete UUIDMap[promptSHA];
+            }
         }
     }));
 }));
@@ -529,7 +533,7 @@ Proxy.listen(Port, Ip, (async () => {
     setTitle('ok');
     updateCookies(Cookie);
     updateCookies(accRes);
-    console.log(`[2mclewd v2.4[0m\n[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map((setting => `[1m${setting}:[0m [36m${Settings[setting]}[0m`)).sort().join('\n')}\n`);
+    console.log(`[2mclewd v2.5[0m\n[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map((setting => `[1m${setting}:[0m [36m${Settings[setting]}[0m`)).sort().join('\n')}\n`);
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
         capabilities: accInfo.capabilities
@@ -550,7 +554,6 @@ Proxy.listen(Port, Ip, (async () => {
                 method: 'POST'
             });
             updateCookies(req);
-
             const json = await req.json();
             console.log(`${flag}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag))));
