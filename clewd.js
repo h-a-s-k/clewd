@@ -9,13 +9,14 @@ const Cookie = '';
 
 ### SettingName: (DEFAULT)/opt1/opt2
 
- 1. AdaptClaude: (true)/false
+ 1. AdaptClaude: (false)/true
     * tries to make human/assistant prompts uniform between endpoints
     * effective both with streaming on and off now
     - Human->H
     - Human<-H
     - Assistant->A
     - Assistant<-A
+    * __true *might* be bad for jailbreaks__, as no Assistant/Human is sent and it might be seen as sample dialogue instead of a direct order [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
 
  2. AntiStall: (false)/1/2
     * no effect when using streaming
@@ -63,7 +64,7 @@ const Cookie = '';
  * @preserve
  */
 const Settings = {
-    AdaptClaude: true,
+    AdaptClaude: false,
     AntiStall: 1,
     ClearFlags: false,
     DeleteChats: false,
