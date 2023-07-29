@@ -1,6 +1,6 @@
 <div align="center">
 <a href="https://gitgud.io/ahsk/clewd/">
-<h1>Clewd</h1>
+<h1>Clewd 1.6</h1>
   <img
     height="120"
     width="120"
@@ -9,9 +9,9 @@
     src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
     align="left"
   />
-</a>
 
 doom & coom
+</a>
 
 <br>
 
