@@ -9,13 +9,12 @@
     src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
     align="left"
   />
-</a>
 
 doom & coom
-
+</a>
 <br>
 
-Warning: Some accounts are getting _hard-blacklisted_ by the **rats**, you might notice it
+Warning: Some accounts are getting _hard-censored_ by the **rats**, you might notice it
 
 <br>
 <br>
@@ -23,8 +22,8 @@ Warning: Some accounts are getting _hard-blacklisted_ by the **rats**, you might
 <a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
    <img src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
 </a>
+<h2><a href="">CHANGELOG</a></h2>
 <hr>
-
 </div>
 
 ## Requirements
@@ -37,61 +36,80 @@ nodejs>=20.4.*
 
 ### SettingName: (DEFAULT)/opt1/opt2
 
- 1. AdaptClaude: (false)/true
-    * tries to make human/assistant prompts uniform between endpoints
-    * effective both with streaming on and off now
-    * __true *might* be bad for jailbreaks__, as no Assistant/Human is sent and it might be seen as sample dialogue instead of a direct order [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
-    - Human->H
-    - Human<-H
-    - Assistant->A
-    - Assistant<-A
-
- 2. AntiStall: (false)/1/2
-    * no effect when using streaming
+ 1. AntiStall: (false)/1/2
+    * 1/2 has no effect when using streaming
     * 1 sends whatever was last when exceeding size (might have some spicy things but impersonations as well)
     * 2 sends a usable message where the bot actually stopped talking
 
- 3. ClearFlags: (false)/true
+ 2. ClearFlags: (false)/true
     * possibly snake-oil
 
- 4. DeleteChats: (false)/true
-    * for privacy, auto deletes your conversations after each reply
+ 3. DeleteChats: (false)/true
+    * true is for privacy, auto deletes your conversations after each reply
     * **if set to true, will also wipe old conversations on startup!**
     * no effect if RetryRegenerate is set to true
 
- 5. PassParams: (false)/true
+ 4. PassParams: (false)/true
     * true will send the temperature you set on your frontent
     * only values under <=1
     * this could get your account banned
     * if clewd stops working, set to false
 
- 6. PreventImperson: (true)/false
-    * trims the bot reply immediately if he says "Human:" or "H:"
-    * making it so it doesn't hallucinate speaking as you (chance of missing some spicy things)
+ 5. PreventImperson: (false)/true
+    * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
+    * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
     * it's probable this will trigger before AntiStall if you have that on
 
- 7. PromptExperiment: (true)/false
-    * an alternative way to send your prompt to the AI
+ 6. PromptExperiment: (true)/false
+    * true is an alternative way to send your prompt to the AI
     * experiment before setting to false
 
- 8. RecycleChats: (false)/true
-    * reuses the same chat on the website, based on the first prompt
+ 7. RecycleChats: (false)/true
+    * true reuses the same chat on the website, based on the first prompt
     * false is less likely to get caught in a censorship loop
 
+ 8. ReplaceSamples: (false)/true
+    * true sends no "sample dialogues" to the AI (no "H" or "A")
+    * instead, you're always "Human" and the AI is always "Assistant"
+    * whatever the AI replies with is kept (only outgoing)
+    * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
+    - H->Human
+    - A->Assistant
+
  9. RetryRegenerate: (false)/true
-    * uses the AI's own retry mechanism when you regenerate on your frontend
+    * true uses the AI's own retry mechanism when you regenerate on your frontend
     * instead of a new conversation
     * experiment with it
 
  10. StripAssistant: (false)/true
-    * might be good IF your prompt/jailbreak itself ends with Assistant: 
+    * true might be good IF your prompt/jailbreak itself ends with Assistant: 
 
  11. StripHuman: (false)/true
-    * bad idea without RecycleChats, sends only your very last message
+    * true is a bad idea without RecycleChats, sends only your very last message
 
 ---
 
+## Examples
+
+decent **without** streaming
+
+> **ReplaceSamples**: false
+
+> **AntiStall**: 2 and/or **PreventImperson**: true
+---
+decent **with** streaming
+> **ReplaceSamples**: false
+
+> **PreventImperson**: false (higher chance of spicy results)
+
+> **PromptExperiment**: true
+
+---
+
+## Downloads
+
 > ### [Download latest version](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
 
+> ### [Download 2.5](https://gitgud.io/ahsk/clewd/-/archive/2.5/clewd-2.5.zip)
 
-> ### [Download old version](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
+> ### [Download 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
