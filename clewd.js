@@ -338,7 +338,6 @@ class ClewdStream extends TransformStream {
             if (this.#streaming) {
                 this.#compPure += completion;
                 const delayChunk = Settings.PreventImperson && AH.some((char => this.#compPure.endsWith(char) || completion.startsWith(char)));
-                this.#compPure.endsWith('* \n\n') || this.#compPure.endsWith('*\n\n');
                 this.#impersonationCheck(controller, this.#compPure);
                 for (;!delayChunk && this.#compPure.length >= this.#minSize; ) {
                     controller.enqueue(this.#build(this.#compPure.length));

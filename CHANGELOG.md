@@ -24,6 +24,7 @@ If set to true, will replace any cases of **outgoing** H/A, to Human/Assistant
 now has **no effect** on incoming, [more info](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
 
 >**PreventImperson** updated
+
 now also stops on A: or Assistant:
 another check added, *should* impersonate less often
 
