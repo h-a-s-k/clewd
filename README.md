@@ -22,8 +22,7 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 <a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
    <img src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
 </a>
-<h2><a href="">CHANGELOG</a></h2>
-<hr>
+<h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md">CHANGELOG</a></h2>
 </div>
 
 ## Requirements
