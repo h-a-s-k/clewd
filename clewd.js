@@ -1,5 +1,5 @@
 /**
- * SET YOUR COOKIE HERE
+ * PASTE YOUR COOKIE BETWEEN THE QUOTES
  * @preserve
  */
 const Cookie = '';
@@ -107,7 +107,7 @@ const Assistant = '\n\nAssistant: ';
 const Human = '\n\nHuman: ';
 const A = '\n\nA: ';
 const H = '\n\nH: ';
-const AH = [ ...new Set([ ...Assistant, ...Human, ...A, ...H, '\\' ]) ].filter((char => ' ' !== char)).sort();
+const AH = [ ...new Set([ ...Assistant, ...Human, ...A, ...H, ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
 
 const cookies = {};
 const UUIDMap = {};
@@ -155,6 +155,8 @@ const indexOfA = (text, last = false) => {
 const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
 
 const stallProtected = () => [ '1', '2' ].includes(Settings.AntiStall + '');
+
+const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
 
 const updateCookies = cookieInfo => {
     let cookieNew = cookieInfo instanceof Response ? cookieInfo.headers?.get('set-cookie') : cookieInfo.split('\n').join('');
@@ -251,9 +253,9 @@ class ClewdStream extends TransformStream {
         return compCut;
     }
     #build(cutoff) {
-        const completion = this.#cutBuffer(cutoff).replace(/\\n{2}/g, '\n\n');
+        const completion = this.#cutBuffer(cutoff);
         const builtReply = JSON.stringify({
-            completion: completion,
+            completion: genericFixes(completion),
             stop_reason: this.#stopReason,
             model: this.modelName,
             stop: this.#stopLoc,
@@ -411,9 +413,8 @@ const Proxy = Server(((req, res) => {
                     H: [ /(\n{2,}H: )/gm, Human ],
                     A: [ /(\n{2,}A: )/gm, Assistant ]
                 };
-                text = text.replace(/(\r\n|\r|\\n)/gm, '\n');
                 return Settings.ReplaceSamples && (replacers.H[0].test(text) || replacers.A[0].test(text)) ? text.replace(replacers.H[0], replacers.H[1]).replace(replacers.A[0], replacers.A[1]) : text;
-            })(prompt);
+            })(genericFixes(prompt));
             if (Settings.PromptExperiment && !samePrompt) {
                 attachments.push({
                     extracted_content: prompt,
