@@ -251,7 +251,7 @@ class ClewdStream extends TransformStream {
         return compCut;
     }
     #build(cutoff) {
-        const completion = this.#cutBuffer(cutoff);
+        const completion = this.#cutBuffer(cutoff).replace(/\\n{2}/g, '\n\n');
         const builtReply = JSON.stringify({
             completion: completion,
             stop_reason: this.#stopReason,

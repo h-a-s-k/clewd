@@ -29,8 +29,6 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
 nodejs>=20.4.*
 
----
-
 ## Defaults
 
 ### SettingName: (DEFAULT)/opt1/opt2
@@ -86,7 +84,6 @@ nodejs>=20.4.*
  11. StripHuman: (false)/true
     * true is a bad idea without RecycleChats, sends only your very last message
 
----
 
 ## Examples
 
@@ -102,8 +99,6 @@ decent **with** streaming
 > **PreventImperson**: false (higher chance of spicy results)
 
 > **PromptExperiment**: true
-
----
 
 ## Downloads
 
