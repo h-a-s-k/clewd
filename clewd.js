@@ -1,6 +1,6 @@
 /**
  * PASTE YOUR COOKIE BETWEEN THE QUOTES
- * @preserve
+ * @preserve 
  */
 const Cookie = '';
 
@@ -9,7 +9,7 @@ const Cookie = '';
 
 ### SettingName: (DEFAULT)/opt1/opt2
 
- 1. AntiStall: (false)/1/2
+ 1. AntiStall: (2)1/false
     * 1/2 has no effect when using streaming
     * 1 sends whatever was last when exceeding size (might have some spicy things but impersonations as well)
     * 2 sends a usable message where the bot actually stopped talking
@@ -60,7 +60,7 @@ const Cookie = '';
  11. StripHuman: (false)/true
     * true is a bad idea without RecycleChats, sends only your very last message
 
- * @preserve
+ * @preserve 
  */
 const Settings = {
     AntiStall: 2,
@@ -82,16 +82,16 @@ const Port = 8444;
 /**
  * Don't touch StallTriggerMax.
  * If you know what you're doing, change the 1.5 MB on StallTrigger to what you want
- * @preserve
+ * @preserve 
  */
 const StallTriggerMax = 4194304;
 const StallTrigger = 1572864;
 
 /**
- * How much will be buffered before one stream chunk goes through
+ * How many characters will be buffered before the AI types once
  * lower = less chance of ReplaceSamples working properly
  * @default 8
- * @preserve
+ * @preserve 
  */
 const BufferSize = 8;
 
@@ -107,7 +107,7 @@ const Assistant = '\n\nAssistant: ';
 const Human = '\n\nHuman: ';
 const A = '\n\nA: ';
 const H = '\n\nH: ';
-const AH = [ ...new Set([ ...Assistant, ...Human, ...A, ...H, ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+const DangerChars = [ ...new Set([ ...Assistant, ...Human, ...A, ...H, ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
 
 const cookies = {};
 const UUIDMap = {};
@@ -117,7 +117,8 @@ let uuidOrg;
 
 let lastPrompt;
 
-ServerResponse.prototype.json = function(body, statusCode = 200, headers) {
+ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
+    body = body instanceof Promise ? await body : body;
     this.headersSent || this.writeHead(statusCode, {
         'Content-Type': 'application/json',
         ...headers && headers
@@ -127,7 +128,7 @@ ServerResponse.prototype.json = function(body, statusCode = 200, headers) {
 };
 
 const AI = {
-    endPoint: () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
+    end: () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
     modelA: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
     modelB: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 105, 110, 115, 116, 97, 110, 116, 45, 49 ]).toString(),
     agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString()
@@ -175,7 +176,7 @@ const updateCookies = cookieInfo => {
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
 const deleteChat = async uuid => {
-    const res = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
+    const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
         headers: {
             Cookie: getCookies(),
             'Content-Type': 'application/json'
@@ -339,7 +340,7 @@ class ClewdStream extends TransformStream {
             this.#compAll.push(completion);
             if (this.#streaming) {
                 this.#compPure += completion;
-                const delayChunk = Settings.PreventImperson && AH.some((char => this.#compPure.endsWith(char) || completion.startsWith(char)));
+                const delayChunk = Settings.PreventImperson && DangerChars.some((char => this.#compPure.endsWith(char) || completion.startsWith(char)));
                 this.#impersonationCheck(controller, this.#compPure);
                 for (;!delayChunk && this.#compPure.length >= this.#minSize; ) {
                     controller.enqueue(this.#build(this.#compPure.length));
@@ -400,7 +401,7 @@ const Proxy = Server(((req, res) => {
              * Ideally SillyTavern would expose a unique frontend conversation_uuid prop to localhost proxies
              * could set the name to a hash of it
              * then fetch /chat_conversations with 'GET' and find it
-             * @preserve
+             * @preserve 
              */
 			const hash = Hash('sha1');
             hash.update(prompt.substring(0, firstAssistantIdx));
@@ -426,7 +427,7 @@ const Proxy = Server(((req, res) => {
             }
             if (!uuidOld && Settings.RecycleChats || !samePrompt) {
                 uuidTemp = randomUUID().toString();
-                fetchAPI = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
+                fetchAPI = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
                     signal: signal,
                     headers: {
                         Cookie: getCookies(),
@@ -445,7 +446,7 @@ const Proxy = Server(((req, res) => {
                 uuidTemp = uuidOld;
                 samePrompt && Settings.RecycleChats ? console.log(model + ' [rR]') : samePrompt ? console.log(model + ' [r]') : Settings.RecycleChats ? console.log(model + ' [R]') : console.log('' + model);
             }
-            fetchAPI = await fetch(`${AI.endPoint()}${samePrompt ? '/api/retry_message' : '/api/append_message'}`, {
+            fetchAPI = await fetch(`${AI.end()}${samePrompt ? '/api/retry_message' : '/api/append_message'}`, {
                 signal: signal,
                 headers: {
                     Cookie: getCookies(),
@@ -493,12 +494,12 @@ const Proxy = Server(((req, res) => {
             console.error('clewd API error:\n%o', err);
             res.json({
                 error: {
-                    message: err.message || err.name,
+                    message: 'clewd: ' + (err.message || err.name),
                     type: err.type || err.code || err.name,
                     param: null,
                     code: 500
                 }
-            }, 500);
+            });
         } finally {
             clearInterval(titleTimer);
             titleTimer = null;
@@ -513,7 +514,7 @@ const Proxy = Server(((req, res) => {
 }));
 
 Proxy.listen(Port, Ip, (async () => {
-    const accRes = await fetch(AI.endPoint() + '/api/organizations', {
+    const accRes = await fetch(AI.end() + '/api/organizations', {
         method: 'GET',
         headers: {
             Cookie: Cookie
@@ -542,7 +543,7 @@ Proxy.listen(Port, Ip, (async () => {
             if ('consumer_restricted_mode' === flag) {
                 return;
             }
-            const req = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/flags/${flag}/dismiss`, {
+            const req = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/flags/${flag}/dismiss`, {
                 headers: {
                     Cookie: getCookies(),
                     'Content-Type': 'application/json'
@@ -555,7 +556,7 @@ Proxy.listen(Port, Ip, (async () => {
         })(flag))));
     }
     if (Settings.RecycleChats || Settings.DeleteChats) {
-        const convRes = await fetch(`${AI.endPoint()}/api/organizations/${uuidOrg}/chat_conversations`, {
+        const convRes = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
             method: 'GET',
             headers: {
                 Cookie: getCookies()

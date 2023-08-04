@@ -33,7 +33,7 @@ nodejs>=20.4.*
 
 ### SettingName: (DEFAULT)/opt1/opt2
 
- 1. AntiStall: (false)/1/2
+ 1. AntiStall: (2)/1/false
     * 1/2 has no effect when using streaming
     * 1 sends whatever was last when exceeding size (might have some spicy things but impersonations as well)
     * 2 sends a usable message where the bot actually stopped talking
