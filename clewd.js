@@ -89,7 +89,7 @@ const StallTrigger = 1572864;
 
 /**
  * How many characters will be buffered before the AI types once
- * lower = less chance of ReplaceSamples working properly
+ * lower = less chance of PreventImperson working properly
  * @default 8
  * @preserve 
  */
