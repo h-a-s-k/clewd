@@ -19,10 +19,10 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 <br>
 <br>
 <hr>
-<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
-   <img src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
+<a href="https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip">
+   <img src="https://gitgud.io/ahsk/clewd/-/raw/2.7/program.png">
 </a>
-<h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md">CHANGELOG</a></h2>
+<h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#anchor-27">CHANGELOG</a></h2>
 </div>
 
 ## Requirements
@@ -102,7 +102,7 @@ decent **with** streaming
 
 ## Downloads
 
-> ### [Download latest version](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
+> ### [Download latest version](https://gitgud.io/ahsk/clewd/)
 
 > ### [Download 2.7](https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip)
 

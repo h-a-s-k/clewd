@@ -14,6 +14,11 @@
 
 ---
 
+### 2.7
+> Fixed broken newlines
+
+---
+
 ### 2.6
 > **AdaptClaude** removed
 
