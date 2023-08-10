@@ -104,6 +104,6 @@ decent **with** streaming
 
 > ### [Download latest version](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
 
-> ### [Download 2.5](https://gitgud.io/ahsk/clewd/-/archive/2.5/clewd-2.5.zip)
+> ### [Download 2.7](https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip)
 
 > ### [Download 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
