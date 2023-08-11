@@ -113,11 +113,3 @@ nodejs>=20.4.*
 > **PreventImperson**: true
 
 > **RenewAlways**: false
-
-## Downloads
-
-> ### [Download latest version](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
-
-> ### [Download 2.7](https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip)
-
-> ### [Download 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
