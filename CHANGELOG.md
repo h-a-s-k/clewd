@@ -6,20 +6,129 @@
     width="120"
     alt="Clewd"
     title="Clewd"
-    src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
+    src="https://gitgud.io/ahsk/clewd/-/raw/master/media/logo.png"
     align="center"
   />
 </a>
 </div>
 
+
+# 3.0
+> ### **Clewd requires setting your "Chat Completion source" to OpenAI now. Enable the "External" models option aswell.**
+
+> ### A config.js file will be generated when first ran, edit it to set your cookie and customize settings
+
+> **Streaming changes**
+
+streaming is now enforced by the website so no point supporting the other mode
+
+Clewd streaming was reworked to behave more like [NBSX](https://gitgud.io/ahsk/nbsx)
+
+> **AntiStall**, **StallTrigger**, **StallTriggerMax** removed
+
+no longer needed since streaming is enforced
+
+> **DeleteChats** removed
+
+now cleans up by default other than a few cases like when `RenewAlways` is set to false
+
+> **RecycleChats** removed
+
+replaced by another system that is activated only if `RenewAlways` is set to false
+
+> **ReplaceSamples** removed
+
+replaced by **NoSamples** *or* **AllSamples*
+
+> **RetryRegenerate** changed
+
+trigger should be more consistent now
+
+> **StripAssistant** and **StripHuman** changed
+
+they remove the Human/Assistant prefixes from the last messages, keeping the message contents
+
+> **RenewAlways** added (defaults true)
+
+if set to true, this is the default pre-3.0 clewd behavior
+
+if set to false, check the `Prompts` section below
+
+> **NoSamples** added (defaults false)
+
+if set to true, replaces any H/A prefix from your frontend into Human/Assistant
+
+mutually exclusive with `AllSamples`
+
+(only outgoing)
+
+> **AllSamples** added (defaults false)
+
+if set to true, replaces every Human/Assistant prefix from your frontend **except the last two** into H/A
+
+mutually exclusive with `NoSamples`
+
+(only outgoing)
+
+> **SystemExperiments** (defaults true) and **Prompts** added (Main, Reminder, Continue)
+
+instead of sending a pre-written chunk of text to the AI, now you can customize exactly (almost) how the prompt is formatted before it is sent
+
+if `RenewAlways` is set to true:
+- `Main` is **always** the one being used.
+
+if `RenewAlways` is set to false:
+- `Main` is sent on conversation start
+- `Continue` is sent on the next message, as long as no *impersonation* happened
+- every `SystemInterval` of messages, `Reminder` is sent once
+
 ---
 
-### 2.7
+if `SystemExperiments` is set to true:
+uses Main then alternates between Reminder and Continue
+
+if `SystemExperiments` is set to false:
+uses Main then Reminder
+
+sometimes it will renew anyway when detecting some oddity
+
+---
+
+example of custom `Main` prompt with XML tags wrapping around
+
+- character description
+- scenario
+- main prompt
+- example messages
+- real messages
+
+```
+<chat>
+{{MAIN_AND_CHARACTER}}
+{{CHAT_EXAMPLE}}
+{{CHAT_LOG}}
+</chat>
+{{JAILBREAK}}
+```
+
+> **Minor changes**
+
+- Clewd errors now should show as such on your frontend
+
+- flags now show how many days until they expire
+
+- the message limit error now shows how many hours until the restriction is lifted
+
+- settings that aren't on their default are now displayed in yellow on startup
+
+- "[Start a new chat]" is excluded from system prompts
+
+
+# 2.7
 > Fixed broken newlines
 
----
 
-### 2.6
+# 2.6
 > **AdaptClaude** removed
 
 > **ReplaceSamples** added (defaults false)
@@ -33,18 +142,16 @@ now has **no effect** on incoming, [more info](https://docs.anthropic.com/claude
 now also stops on A: or Assistant:
 another check added, *should* impersonate less often
 
----
 
-### 2.5
+# 2.5
 > Changed some defaults around
 
 refer to the [README](https://gitgud.io/ahsk/clewd/#defaults) for the reasoning behind each
 
 > **DeleteChats** bugfix
 
----
 
-### 2.4
+# 2.4
 > **DeleteChats** added (defaults false)
 
 for privacy, deletes old chats on startup and deletes any new ones after receiving a reply
@@ -55,9 +162,8 @@ should be more accurate now
 
 > **RetryRegenerate** no longer defaults true
 
----
 
-### 2.0 to 2.2
+# 2.0 to 2.2
 > **RetryRegenerate** added (defaults true)
 
 uses the AI's own retry mechanism when you regenerate on your frontend, if you change anything from your last prompt before regenerating it will default to old behavior
@@ -67,9 +173,8 @@ uses the AI's own retry mechanism when you regenerate on your frontend, if you c
 an alternative way to send your prompt to the AI, through a file. set to false if it's bad
 both enabled: https://files.catbox.moe/io1q53.webm
 
----
 
-### 1.6 to 2.0
+# 1.6 to 2.0
 > **AdaptClaude** now should work better with streaming on
 
 > **AntiStall 2**

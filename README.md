@@ -6,7 +6,7 @@
     width="120"
     alt="Clewd"
     title="Clewd"
-    src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
+    src="https://gitgud.io/ahsk/clewd/-/raw/master/media/logo.png"
     align="left"
   />
 
@@ -20,7 +20,7 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 <br>
 <hr>
 <a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
-   <img src="https://gitgud.io/ahsk/clewd/-/raw/master/program.png">
+   <img src="https://gitgud.io/ahsk/clewd/-/raw/master/media/program.png">
 </a>
 <h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md">CHANGELOG</a></h2>
 </div>
@@ -31,74 +31,86 @@ nodejs>=20.4.*
 
 ## Defaults
 
-### SettingName: (DEFAULT)/opt1/opt2
+### SettingName: (DEFAULT)/opt1/opt2...
 
- 1. AntiStall: (2)/1/false
-    * 1/2 has no effect when using streaming
-    * 1 sends whatever was last when exceeding size (might have some spicy things but impersonations as well)
-    * 2 sends a usable message where the bot actually stopped talking
+ 1. `AllSamples`: (false)/true
+    * mutually exclusive with `NoSamples`
+    * true converts every message except the last two to "sample dialogues"
+    * you're "H" and the AI is "A"
+    * whatever the AI replies with is kept (only outgoing)
+    * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
+    - Human->H
+    - Assistant->A
 
- 2. ClearFlags: (false)/true
+ 2. `ClearFlags`: (false)/true
     * possibly snake-oil
 
- 3. DeleteChats: (false)/true
-    * true is for privacy, auto deletes your conversations after each reply
-    * **if set to true, will also wipe old conversations on startup!**
-    * no effect if RetryRegenerate is set to true
-
- 4. PassParams: (false)/true
-    * true will send the temperature you set on your frontent
-    * only values under <=1
-    * this could get your account banned
-    * if clewd stops working, set to false
-
- 5. PreventImperson: (false)/true
-    * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
-    * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
-    * it's probable this will trigger before AntiStall if you have that on
-
- 6. PromptExperiment: (true)/false
-    * true is an alternative way to send your prompt to the AI
-    * experiment before setting to false
-
- 7. RecycleChats: (false)/true
-    * true reuses the same chat on the website, based on the first prompt
-    * false is less likely to get caught in a censorship loop
-
- 8. ReplaceSamples: (false)/true
-    * true sends no "sample dialogues" to the AI (no "H" or "A")
-    * instead, you're always "Human" and the AI is always "Assistant"
+ 3. `NoSamples`: (false)/true
+    * mutually exclusive with `AllSamples`
+    * true converts all "sample dialogues" to real dialogue
+    * you're "Human" and the AI is "Assistant"
     * whatever the AI replies with is kept (only outgoing)
     * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
     - H->Human
     - A->Assistant
 
- 9. RetryRegenerate: (false)/true
+ 4. `PassParams`: (false)/true
+    * true will send the temperature you set on your frontend
+    * only values under <=1
+    * this could get your account banned
+    * if clewd stops working, set to false
+
+ 5. `PreventImperson`: (false)/true
+    * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
+    * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
+
+ 6. `PromptExperiment`: (true)/false
+    * true is an alternative way to send your prompt to the AI
+    * experiment before setting to false
+
+ 7. `RenewAlways`: (true)/false
+    * true is the default pre-3.0 behavior
+    * false is basically a better version of the old `RecycleChats`
+
+ 8. `RetryRegenerate`: (false)/true
     * true uses the AI's own retry mechanism when you regenerate on your frontend
     * instead of a new conversation
     * experiment with it
 
- 10. StripAssistant: (false)/true
-    * true might be good IF your prompt/jailbreak itself ends with Assistant: 
+ 9. `StripAssistant`: (false)/true
+    * true strips the "Assistant:" prefix from the last assistant message
 
- 11. StripHuman: (false)/true
-    * true is a bad idea without RecycleChats, sends only your very last message
+ 10. `StripHuman`: (false)/true
+    * true strips the "Human:" prefix from the last human message
+
+ 11. `SystemExperiments`: (true)/false
+    * only has any effect when `RenewAlways` is false
+    * true alternates between Reminder and Continue prompts
+    * false only uses Reminder
+
 
 
 ## Examples
 
-decent **without** streaming
+**safe setup**
+> **PreventImperson**: false (higher chance of spicy stuff)
 
-> **ReplaceSamples**: false
+> **RenewAlways**: true
 
-> **AntiStall**: 2 and/or **PreventImperson**: true
 ---
-decent **with** streaming
-> **ReplaceSamples**: false
 
-> **PreventImperson**: false (higher chance of spicy results)
-
+**experimental setup**
 > **PromptExperiment**: true
+
+> **SystemExperiments**: true
+
+> **RetryRegenerate**: true
+
+> **StripAssistant**: true (add prefill to jailbreak in this case)
+
+> **PreventImperson**: true
+
+> **RenewAlways**: false
 
 ## Downloads
 

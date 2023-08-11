@@ -9,6 +9,11 @@ yarn-error.log*
 *_dev.js
 *.dev.js
 
+# Clewd
+cookies.json
+cookies.js
+cookies.ini
+
 # npm
 package-lock.json
 

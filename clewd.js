@@ -1,121 +1,88 @@
-/**
- * PASTE YOUR COOKIE BETWEEN THE QUOTES
- * @preserve 
- */
-const Cookie = '';
+/*
+* https://gitgud.io/ahsk/clewd
+* https://github.com/h-a-s-k/clewd
+*/
+'use strict';
 
-/**
-## EXPERIMENTAL
+const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http');
 
-### SettingName: (DEFAULT)/opt1/opt2
+const {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto');
 
- 1. AntiStall: (2)1/false
-    * 1/2 has no effect when using streaming
-    * 1 sends whatever was last when exceeding size (might have some spicy things but impersonations as well)
-    * 2 sends a usable message where the bot actually stopped talking
+const {TransformStream} = require('node:stream/web');
 
- 2. ClearFlags: (false)/true
-    * possibly snake-oil
+const {Readable, Writable} = require('node:stream');
 
- 3. DeleteChats: (false)/true
-    * true is for privacy, auto deletes your conversations after each reply
-    * **if set to true, will also wipe old conversations on startup!**
-    * no effect if RetryRegenerate is set to true
+const FS = require('node:fs');
 
- 4. PassParams: (false)/true
-    * true will send the temperature you set on your frontent
-    * only values under <=1
-    * this could get your account banned
-    * if clewd stops working, set to false
-
- 5. PreventImperson: (false)/true
-    * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
-    * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
-    * it's probable this will trigger before AntiStall if you have that on
-
- 6. PromptExperiment: (true)/false
-    * true is an alternative way to send your prompt to the AI
-    * experiment before setting to false
-
- 7. RecycleChats: (false)/true
-    * true reuses the same chat on the website, based on the first prompt
-    * false is less likely to get caught in a censorship loop
-
- 8. ReplaceSamples: (false)/true
-    * true sends no "sample dialogues" to the AI (no "H" or "A")
-    * instead, you're always "Human" and the AI is always "Assistant"
-    * whatever the AI replies with is kept (only outgoing)
-    * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
-    - H->Human
-    - A->Assistant
-
- 9. RetryRegenerate: (false)/true
-    * true uses the AI's own retry mechanism when you regenerate on your frontend
-    * instead of a new conversation
-    * experiment with it
-
- 10. StripAssistant: (false)/true
-    * true might be good IF your prompt/jailbreak itself ends with Assistant: 
-
- 11. StripHuman: (false)/true
-    * true is a bad idea without RecycleChats, sends only your very last message
-
- * @preserve 
- */
-const Settings = {
-    AntiStall: 2,
-    ClearFlags: false,
-    DeleteChats: false,
-    PassParams: false,
-    PreventImperson: false,
-    PromptExperiment: true,
-    RecycleChats: false,
-    ReplaceSamples: false,
-    RetryRegenerate: false,
-    StripAssistant: false,
-    StripHuman: false
-};
-
-const Ip = '127.0.0.1';
-const Port = 8444;
-
-/**
- * Don't touch StallTriggerMax.
- * If you know what you're doing, change the 1.5 MB on StallTrigger to what you want
- * @preserve 
- */
-const StallTriggerMax = 4194304;
-const StallTrigger = 1572864;
-
-/**
- * How many characters will be buffered before the AI types once
- * lower = less chance of PreventImperson working properly
- * @default 8
- * @preserve 
- */
-const BufferSize = 8;
-
-const {createServer: Server, IncomingMessage: IncomingMessage, ServerResponse: ServerResponse} = require('node:http');
-const {createHash: Hash, randomUUID: randomUUID, randomInt: randomInt, randomBytes: randomBytes} = require('node:crypto');
-const {TransformStream: TransformStream} = require('node:stream/web');
-const {Writable: Writable} = require('node:stream');
+const Path = require('node:path');
 
 const Decoder = new TextDecoder;
+
 const Encoder = new TextEncoder;
 
-const Assistant = '\n\nAssistant: ';
-const Human = '\n\nHuman: ';
-const A = '\n\nA: ';
-const H = '\n\nH: ';
-const DangerChars = [ ...new Set([ ...Assistant, ...Human, ...A, ...H, ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+let NonDefaults;
+
+const ConfigPath = Path.join(__dirname, './config.js');
+
+const Replacements = {
+    user: 'Human: ',
+    assistant: 'Assistant: ',
+    system: '',
+    example_user: 'H: ',
+    example_assistant: 'A: '
+};
+
+const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+
+const Conversation = {
+    char: null,
+    uuid: null,
+    depth: 0
+};
 
 const cookies = {};
-const UUIDMap = {};
 
-let uuidTemp;
+let curPrompt = {};
+
+let prevPrompt = {};
+
+let prevMessages = [];
+
+let prevImpersonated = false;
+
 let uuidOrg;
 
-let lastPrompt;
+/**
+ * Edit settings in your config.js instead
+ * these are the defaults and change every update
+ * @preserve
+ */ let Config = {
+    Cookie: '',
+    Ip: '127.0.0.1',
+    Port: 8444,
+    BufferSize: 8,
+    SystemInterval: 3,
+    Settings: {
+        AllSamples: false,
+        ClearFlags: false,
+        NoSamples: false,
+        PassParams: false,
+        PreventImperson: false,
+        PromptExperiment: true,
+        RetryRegenerate: false,
+        RenewAlways: true,
+        StripAssistant: false,
+        StripHuman: false,
+        SystemExperiments: true
+    },
+    ExampleChatPrefix: '[EXAMPLE CHATS]\n',
+    RealChatPrefix: '[CHAT BEGIN]\n',
+    PromptMain: '{{MAIN_AND_CHARACTER}}\n{{CHAT_EXAMPLE}}\n{{CHAT_LOG}}\n{{JAILBREAK}}',
+    PromptReminder: '{{MAIN_AND_CHARACTER}}\n{{JAILBREAK}}\n{{LATEST_USER}}',
+    PromptContinue: '{{JAILBREAK}}\n{{LATEST_USER}}'
+};
+
+const Main = 'clewd v3.0';
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -127,37 +94,44 @@ ServerResponse.prototype.json = async function(body, statusCode = 200, headers) 
     return this;
 };
 
+Array.prototype.sample = function() {
+    return this[Math.floor(Math.random() * this.length)];
+};
+
 const AI = {
     end: () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
     modelA: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
     modelB: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 105, 110, 115, 116, 97, 110, 116, 45, 49 ]).toString(),
-    agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString()
+    agent: () => JSON.parse(Buffer.from([ 91, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 53, 46, 48, 46, 49, 57, 48, 49, 46, 49, 56, 56, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 59, 32, 114, 118, 58, 49, 48, 57, 46, 48, 41, 32, 71, 101, 99, 107, 111, 47, 50, 48, 49, 48, 48, 49, 48, 49, 32, 70, 105, 114, 101, 102, 111, 120, 47, 49, 49, 54, 46, 48, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 79, 80, 82, 47, 49, 48, 50, 46, 48, 46, 48, 46, 48, 34, 93 ]).toString()).sample(),
+    hdr: () => ({
+        'Content-Type': 'application/json',
+        Referer: AI.end() + '/',
+        Origin: '' + AI.end()
+    })
 };
 
 const fileName = () => {
-    const bytes = randomInt(5, 15);
-    return randomBytes(bytes).toString('hex') + '.txt';
+    const len = randomInt(5, 15);
+    let name = randomBytes(len).toString('hex');
+    for (let i = 0; i < name.length; i++) {
+        const char = name.charAt(i);
+        isNaN(char) && randomInt(1, 5) % 2 == 0 && ' ' !== name.charAt(i - 1) && (name = name.slice(0, i) + ' ' + name.slice(i));
+    }
+    return name + '.txt';
 };
 
-const indexOfH = (text, last = false) => {
-    let location = -1;
-    const matchesH = text.match(/(?:(?:\\n)|\n){2}((?:Human|H): ?)/gm);
-    matchesH?.length > 0 && (location = last ? text.lastIndexOf(matchesH[matchesH.length - 1]) : text.indexOf(matchesH[0]));
-    return location;
-};
-
-const indexOfA = (text, last = false) => {
-    let location = -1;
-    const matchesA = text.match(/(?:(?:\\n)|\n){2}((?:Assistant|A): ?)/gm);
-    matchesA?.length > 0 && (location = last ? text.lastIndexOf(matchesA[matchesA.length - 1]) : text.indexOf(matchesA[0]));
-    return location;
+const bytesToSize = (bytes = 0) => {
+    const b = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
+    if (0 === bytes) {
+        return '0 B';
+    }
+    const c = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 4);
+    return 0 === c ? `${bytes} ${b[c]}` : `${(bytes / 1024 ** c).toFixed(1)} ${b[c]}`;
 };
 
 const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
 
-const stallProtected = () => [ '1', '2' ].includes(Settings.AntiStall + '');
-
-const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
+const genericFixes = text => text ? text.replace(/(\r\n|\r|\\n)/gm, '\n') : text;
 
 const updateCookies = cookieInfo => {
     let cookieNew = cookieInfo instanceof Response ? cookieInfo.headers?.get('set-cookie') : cookieInfo.split('\n').join('');
@@ -176,23 +150,165 @@ const updateCookies = cookieInfo => {
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
 const deleteChat = async uuid => {
+    if (!uuid) {
+        return;
+    }
     const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
         headers: {
-            Cookie: getCookies(),
-            'Content-Type': 'application/json'
+            ...AI.hdr(),
+            Cookie: getCookies()
         },
         method: 'DELETE'
     });
     updateCookies(res);
+    if (uuid === Conversation.uuid) {
+        Conversation.uuid = null;
+        Conversation.depth = 0;
+    }
+};
+
+const messagesToPrompt = (messages, customPrompt) => {
+    let messagesClone = JSON.parse(JSON.stringify(messages));
+    let prompt = [ ...customPrompt || Config.PromptMain ].join('').trim();
+    let lastInterGlobalIdx = -1;
+    const interactionDividers = messagesClone.filter((message => 'system' === message.role && '[Start a new chat]' === message.content));
+    interactionDividers.forEach(((divider, idx) => {
+        if (idx !== interactionDividers.length - 1) {
+            divider.content = '' + Config.ExampleChatPrefix;
+        } else {
+            divider.content = '' + Config.RealChatPrefix;
+            lastInterGlobalIdx = messagesClone.findIndex((message => message === divider));
+        }
+    }));
+    const latestInteraction = [];
+    const lastAssistant = messagesClone.findLast((message => 'assistant' === message.role));
+    if (lastAssistant && Config.Settings.StripAssistant) {
+        lastAssistant.empty = true;
+        latestInteraction.push(lastAssistant);
+    }
+    const lastUser = messagesClone.findLast((message => 'user' === message.role));
+    if (lastUser && Config.Settings.StripHuman) {
+        lastUser.empty = true;
+        latestInteraction.push(lastUser);
+    }
+    let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
+    let sampleChats = messagesClone.filter((message => message.name && message.name.startsWith('example_')));
+    Config.Settings.AllSamples && !Config.Settings.NoSamples && chatLogs.forEach(((message, idx) => {
+        if (message !== lastUser && message !== lastAssistant) {
+            if ('user' === message.role) {
+                message.name = 'example_user';
+                message.role = 'system';
+            } else {
+                if ('assistant' !== message.role) {
+                    throw Error('Invalid role ' + message.role);
+                }
+                message.name = 'example_assistant';
+                message.role = 'system';
+            }
+        }
+    }));
+    Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleChats.forEach(((message, idx) => {
+        if ('example_user' === message.name) {
+            message.role = 'user';
+        } else {
+            if ('example_assistant' !== message.name) {
+                throw Error('Invalid role ' + message.name);
+            }
+            message.role = 'assistant';
+        }
+        delete message.name;
+    }));
+    const remainingSystem = messagesClone.filter((message => 'system' === message.role && !sampleChats.includes(message) && !interactionDividers.includes(message)));
+    let mainPromptCharacter = remainingSystem?.[0];
+    let jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
+    if (jailbreakPrompt === mainPromptCharacter) {
+        mainPromptCharacter = null;
+        jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
+    }
+    prompt = prompt.replace(/{{MAIN_AND_CHARACTER}}/gm, mainPromptCharacter?.content?.length > 0 ? '' + mainPromptCharacter?.content.trim() : '');
+    prompt = prompt.replace(/{{CHAT_EXAMPLE}}/gm, sampleChats.length < 1 ? '' : `\n${Config.ExampleChatPrefix}${sampleChats?.map((message => `${Replacements[message.name || message.role]}${message.content.trim()}`)).join('\n\n')}`);
+    prompt = prompt.replace(/{{CHAT_LOG}}/gm, chatLogs.length < 1 ? '' : `\n${Config.RealChatPrefix}${chatLogs?.map((message => `${message.empty ? '' : Replacements[message.role || message.name]}${message.content.trim()}`)).join('\n\n')}`);
+    prompt = prompt.replace(/{{JAILBREAK}}/gm, jailbreakPrompt?.content?.length > 0 ? '' + jailbreakPrompt?.content.trim() : '');
+    prompt = prompt.replace(/{{LATEST_USER}}/gm, lastUser ? `${lastUser.empty ? '' : Replacements[lastUser.role]}${lastUser.content.trim()}` : '');
+    prompt = prompt.replace(/{{LATEST_ASSISTANT}}/gm, lastAssistant ? `${lastAssistant.empty ? '' : Replacements[lastAssistant.role]}${lastAssistant.content.trim()}` : '');
+    return genericFixes(prompt).trim();
 };
 
 const setTitle = title => {
-    title = 'clewd v2.6 - ' + title;
+    title = `${Main} - ${title}`;
     process.title !== title && (process.title = title);
 };
 
+const onListen = async () => {
+    if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
+        throw Error('Set your cookie inside config.js');
+    }
+    const accRes = await fetch(AI.end() + '/api/organizations', {
+        method: 'GET',
+        headers: {
+            ...AI.hdr(),
+            Cookie: Config.Cookie
+        }
+    });
+    const accInfo = (await accRes.json())?.[0];
+    if (!accInfo || accInfo.error) {
+        throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText}"`);
+    }
+    if (!accInfo?.uuid) {
+        throw Error('Invalid account id');
+    }
+    setTitle('ok');
+    updateCookies(Config.Cookie);
+    updateCookies(accRes);
+    console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => `[1m${setting}:[0m ${NonDefaults.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
+    console.log('Logged in %o', {
+        name: accInfo.name?.split('@')?.[0],
+        capabilities: accInfo.capabilities
+    });
+    uuidOrg = accInfo?.uuid;
+    if (accInfo?.active_flags.length > 0) {
+        const now = new Date;
+        const formattedFlags = accInfo.active_flags.map((flag => {
+            const days = ((new Date(flag.expires_at).getTime() - now.getTime()) / 864e5).toFixed(2);
+            return {
+                type: flag.type,
+                remaining_days: days
+            };
+        }));
+        console.warn('[31mYour account has warnings[0m %o', formattedFlags);
+        await Promise.all(accInfo.active_flags.map((flag => (async type => {
+            if (!Config.Settings.ClearFlags) {
+                return;
+            }
+            if ('consumer_restricted_mode' === type) {
+                return;
+            }
+            const req = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
+                headers: {
+                    ...AI.hdr(),
+                    Cookie: getCookies()
+                },
+                method: 'POST'
+            });
+            updateCookies(req);
+            const json = await req.json();
+            console.log(`${type}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
+        })(flag.type))));
+    }
+    const convRes = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+        method: 'GET',
+        headers: {
+            ...AI.hdr(),
+            Cookie: getCookies()
+        }
+    });
+    const conversations = await convRes.json();
+    updateCookies(convRes);
+    conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
+};
+
 class ClewdStream extends TransformStream {
-    constructor(minSize = 8, modelName = AI.modelA(), streaming, abortController) {
+    constructor(minSize = 8, modelName = AI.modelA(), abortController) {
         super({
             transform: (chunk, controller) => {
                 this.#handle(chunk, controller);
@@ -203,15 +319,12 @@ class ClewdStream extends TransformStream {
         });
         this.#modelName = modelName;
         this.#minSize = minSize;
-        this.#streaming = streaming;
         this.#abortController = abortController;
     }
-    #compLast='';
     #minSize=void 0;
-    #streaming=false;
-    #compPure='';
+    #compOK='';
     #abortController=void 0;
-    #modelName='';
+    #modelName=void 0;
     #compAll=[];
     #compValid=[];
     #compInvalid=[];
@@ -219,6 +332,7 @@ class ClewdStream extends TransformStream {
     #stopLoc=void 0;
     #stopReason=void 0;
     #hardCensor=false;
+    #impersonated=false;
     get size() {
         return this.#recvLength;
     }
@@ -237,125 +351,365 @@ class ClewdStream extends TransformStream {
     get censored() {
         return this.#hardCensor;
     }
-    get stalled() {
-        return stallProtected() && this.#recvLength >= StallTrigger;
+    get impersonated() {
+        return this.#impersonated;
     }
     empty() {
-        this.#compPure = this.#compLast = this.#compAll = this.#compValid = this.#compInvalid = null;
+        this.#compOK = '';
+        this.#compAll = this.#compValid = this.#compInvalid = [];
+        this.#recvLength = 0;
     }
-    #cutBuffer(cutoff) {
-        let compCut;
-        if (this.#streaming) {
-            compCut = this.#compPure.substring(0, cutoff);
-            this.#compPure = this.#compPure.substring(cutoff, this.#compPure.length);
-        } else {
-            compCut = this.#compLast.substring(0, cutoff);
-        }
-        return compCut;
+    #cutBuffer() {
+        const valid = [ ...this.#compOK ];
+        const selection = valid.splice(0, Math.min(this.#minSize, valid.length)).join('');
+        this.#compOK = valid.join('');
+        return selection;
     }
-    #build(cutoff) {
-        const completion = this.#cutBuffer(cutoff);
-        const builtReply = JSON.stringify({
-            completion: genericFixes(completion),
-            stop_reason: this.#stopReason,
-            model: this.modelName,
-            stop: this.#stopLoc,
-            log_id: '',
-            messageLimit: {
-                type: 'within_limit'
-            }
-        });
-        return this.#streaming ? Encoder.encode(`data: ${builtReply}\n\n`) : builtReply;
+    #build(selection) {
+        const completion = {
+            choices: [ {
+                delta: {
+                    content: genericFixes(selection)
+                }
+            } ]
+        };
+        return Encoder.encode(`data: ${JSON.stringify(completion)}\n\n`);
     }
     #print() {}
     #done(controller) {
         this.#print();
         330 === this.#recvLength && (this.#hardCensor = true);
-        this.#streaming ? this.#compPure.length > 0 && controller.enqueue(this.#build(this.#compPure.length)) : controller.enqueue(this.#build(this.#compLast.length));
+        this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
     }
-    #stallCheck(controller) {
-        if (!this.stalled || this.#streaming) {
-            return;
-        }
-        const triggerEmergency = this.#recvLength >= Math.max(StallTriggerMax, 2 * StallTrigger);
-        if (Settings.AntiStall + '' == '1' || triggerEmergency) {
-            console.log(`[31mstall: ${triggerEmergency ? 'max' : '1'}[0m`);
-            controller.enqueue(this.#build(this.#compLast.length));
-            return controller.terminate();
-        }
-        const validCompletion = this.#compAll.find((completion => indexOfH(completion) > -1));
-        if (validCompletion) {
-            this.#compLast = validCompletion;
-            const fakeHuman = indexOfH(validCompletion);
-            console.log('[31mstall: 2[0m');
-            controller.enqueue(this.#build(fakeHuman > -1 ? fakeHuman : validCompletion.length));
-            return controller.terminate();
-        }
-    }
-    #impersonationCheck(controller, completion) {
-        if (!Settings.PreventImperson) {
-            return;
-        }
-        let cutLimit = completion.length;
+    #impersonationCheck(controller) {
         const fakeAny = ((text, last = false) => {
             let location = -1;
-            const fakes = [ indexOfH(text, last), indexOfA(text, last) ].filter((idx => idx > -1)).sort();
+            const fakeHuman = ((text, last = false) => {
+                let location = -1;
+                const matchesH = text.match(/(?:(?:\\n)|\n){2}((?:Human|H): ?)/gm);
+                matchesH?.length > 0 && (location = last ? text.lastIndexOf(matchesH[matchesH.length - 1]) : text.indexOf(matchesH[0]));
+                return location;
+            })(text, last);
+            const fakeAssistant = ((text, last = false) => {
+                let location = -1;
+                const matchesA = text.match(/(?:(?:\\n)|\n){2}((?:Assistant|A): ?)/gm);
+                matchesA?.length > 0 && (location = last ? text.lastIndexOf(matchesA[matchesA.length - 1]) : text.indexOf(matchesA[0]));
+                return location;
+            })(text, last);
+            const fakes = [ fakeHuman, fakeAssistant ].filter((idx => idx > -1)).sort();
             location = last ? fakes.reverse()[0] : fakes[0];
             return isNaN(location) ? -1 : location;
-        })(completion);
+        })(this.#compOK);
         if (fakeAny > -1) {
-            cutLimit = fakeAny;
-            this.#print();
-            console.log(`[33mimpersonation, dropped:[0m [4m${completion.substring(cutLimit, completion.length).split('\n').join(' ')}[0m`);
-            controller.enqueue(this.#build(cutLimit));
-            return controller.terminate();
+            this.#impersonated = true;
+            if (Config.Settings.PreventImperson) {
+                const selection = this.#compOK.substring(0, fakeAny);
+                console.warn(`[33mimpersonation, dropped:[0m "[4m${this.#compOK.substring(fakeAny, Math.min(25, this.#compOK.length)).replace(/\n/g, '\\n')}[0m..."`);
+                controller.enqueue(this.#build(selection));
+                this.#print();
+                this.#abortController.abort();
+                return controller.terminate();
+            }
         }
     }
     #handle(chunk, controller) {
-        let completion;
-        this.#recvLength += chunk.length || 0;
+        this.#recvLength += chunk.byteLength || 0;
+        let parsed = {};
+        let delayChunk;
         chunk = Decoder.decode(chunk);
         chunk = cleanJSON(chunk);
         try {
             const clean = cleanJSON(chunk);
-            const parsed = JSON.parse(clean);
-            completion = parsed.completion;
+            parsed = JSON.parse(clean);
             this.#stopLoc = parsed.stop;
             this.#stopReason = parsed.stop_reason;
-            this.#compValid.push(completion);
+            this.#compValid.push(parsed.completion);
+            parsed.error;
         } catch (err) {
-            const {stopMatch: stopMatch, stopReasonMatch: stopReasonMatch, completionMatch: completionMatch} = (chunk => ({
+            const {stopMatch, stopReasonMatch, completionMatch, errorMatch} = (chunk => ({
                 completionMatch: (chunk = 'string' == typeof chunk ? chunk : Decoder.decode(chunk)).match(/(?<="completion"\s?:\s?")(.*?)(?=\\?",?)/gi),
                 stopMatch: chunk.match(/(?<="stop"\s?:\s?")(.*?)(?=\\?",?)/gi),
-                stopReasonMatch: chunk.match(/(?<="stop_reason"\s?:\s?")(.*?)(?=\\?",?)/gi)
+                stopReasonMatch: chunk.match(/(?<="stop_reason"\s?:\s?")(.*?)(?=\\?",?)/gi),
+                errorMatch: chunk.match(/(?<="message"\s?:\s?")(.*?)(?=\\?",?)/gi)
             }))(chunk);
-            stopMatch && (this.#stopLoc = stopMatch.join(''));
-            stopReasonMatch && (this.#stopReason = stopReasonMatch.join(''));
+            stopMatch && (parsed.stop = stopMatch.join(''));
+            stopReasonMatch && (parsed.stop_reason = stopReasonMatch.join(''));
             if (completionMatch) {
-                completion = completionMatch.join('');
-                this.#compInvalid.push(completion);
+                parsed.completion = completionMatch.join('');
+                this.#compInvalid.push(parsed.completion);
             }
+        } finally {
+            this.#stopReason = parsed.stop_reason;
+            this.#stopLoc = parsed.stop;
+            this.#compAll.push(parsed.completion);
         }
-        if (completion && !(completion.length < 1)) {
-            this.#compAll.push(completion);
-            if (this.#streaming) {
-                this.#compPure += completion;
-                const delayChunk = Settings.PreventImperson && DangerChars.some((char => this.#compPure.endsWith(char) || completion.startsWith(char)));
-                this.#impersonationCheck(controller, this.#compPure);
-                for (;!delayChunk && this.#compPure.length >= this.#minSize; ) {
-                    controller.enqueue(this.#build(this.#compPure.length));
-                }
-            } else {
-                this.#compLast = completion;
-                this.#stallCheck(controller);
-                this.#impersonationCheck(controller, this.#compLast);
+        if (parsed.completion && !(parsed.completion.length < 1)) {
+            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
+            this.#compOK += parsed.completion;
+            delayChunk && this.#impersonationCheck(controller);
+            for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
+                const selection = this.#cutBuffer();
+                controller.enqueue(this.#build(selection));
             }
         }
     }
 }
 
-const Proxy = Server(((req, res) => {
-    if ('/v1/complete' !== req.url) {
+const writeSettings = async (config, firstRun = false) => {
+    FS.writeFileSync(ConfigPath, `/*\n* https://gitgud.io/ahsk/clewd\n* https://github.com/h-a-s-k/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval, PromptMain, PromptReminder, PromptContinue\n * when \`RenewAlways\` is set to true (default), \`Main\` is always the one being used\n\n * when \`RenewAlways\` is set to false, \`Main\` is sent on conversation start\n * then only \`Continue\` is sent as long as no impersonation happened\n * \`Simple\` and \`Reminder\` alternate every \`SystemInterval\`\n * \n * {{MAIN_AND_CHARACTER}}, {{CHAT_EXAMPLE}}, {{CHAT_LOG}}, {{JAILBREAK}}, {{LATEST_ASSISTANT}}, {{LATEST_USER}}\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#anchor-30\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
+    if (firstRun) {
+        console.warn('[33mConfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
+        process.exit(0);
+    }
+};
+
+const Proxy = Server((async (req, res) => {
+    switch (req.url) {
+      case '/v1/models':
+        return res.json({
+            data: [ {
+                id: AI.modelA()
+            } ]
+        });
+
+      case '/v1/chat/completions':
+        return ((req, res) => {
+            setTitle('recv...');
+            let fetchAPI;
+            const controller = new AbortController;
+            const {signal} = controller;
+            res.socket.on('close', (async () => {
+                controller.signal.aborted || controller.abort();
+            }));
+            const buffer = [];
+            req.on('data', (chunk => {
+                buffer.push(chunk);
+            }));
+            req.on('end', (async () => {
+                let clewdStream;
+                let titleTimer;
+                let samePrompt = false;
+                let shouldRenew = true;
+                let retryRegen = false;
+                try {
+                    const body = JSON.parse(Buffer.concat(buffer).toString());
+                    const temperature = Math.max(.1, Math.min(1, body.temperature));
+                    let {messages} = body;
+                    if (messages?.length < 1) {
+                        throw Error('Select OpenAI as completion source');
+                    }
+                    if (!body.stream && 1 === messages.length && JSON.stringify(messages.sort() || []) === JSON.stringify([ {
+                        role: 'user',
+                        content: 'Hi'
+                    } ].sort())) {
+                        return res.json({
+                            choices: [ {
+                                message: {
+                                    content: Main
+                                }
+                            } ]
+                        });
+                    }
+                    if (!body.stream) {
+                        throw Error('Turn "Streaming" on (not legacy streaming)');
+                    }
+                    if (Config.Settings.AllSamples && Config.Settings.NoSamples) {
+                        console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
+                        throw Error('Only one can be used at the same time: AllSamples/NoSamples');
+                    }
+                    const model = AI.modelA();
+                    curPrompt = {
+                        firstUser: messages.find((message => 'user' === message.role)),
+                        firstSystem: messages.find((message => 'system' === message.role)),
+                        firstAssistant: messages.find((message => 'assistant' === message.role)),
+                        lastUser: messages.findLast((message => 'user' === message.role)),
+                        lastSystem: messages.findLast((message => 'system' === message.role && '[Start a new chat]' !== message.content)),
+                        lastAssistant: messages.findLast((message => 'assistant' === message.role))
+                    };
+                    prevPrompt = {
+                        ...prevMessages.length > 0 && {
+                            firstUser: prevMessages.find((message => 'user' === message.role)),
+                            firstSystem: prevMessages.find((message => 'system' === message.role)),
+                            firstAssistant: prevMessages.find((message => 'assistant' === message.role)),
+                            lastUser: prevMessages.findLast((message => 'user' === message.role)),
+                            lastSystem: prevMessages.find((message => 'system' === message.role && '[Start a new chat]' !== message.content)),
+                            lastAssistant: prevMessages.findLast((message => 'assistant' === message.role))
+                        }
+                    };
+                    let prompt;
+                    samePrompt = JSON.stringify(messages.filter((message => 'system' !== message.role)).sort()) === JSON.stringify(prevMessages.filter((message => 'system' !== message.role)).sort());
+                    curPrompt.lastUser.content, prevPrompt.lastUser?.content;
+                    curPrompt.lastAssistant.content, prevPrompt.lastAssistant?.content;
+                    const contextReduced = false;
+                    const sameCharDiffChat = !samePrompt && !contextReduced && curPrompt.firstSystem?.content === prevPrompt.firstSystem?.content && curPrompt.firstUser.content !== prevPrompt.firstUser?.content;
+                    shouldRenew = Config.Settings.RenewAlways || !Conversation.uuid || prevImpersonated || !Config.Settings.RenewAlways && samePrompt || contextReduced || sameCharDiffChat;
+                    retryRegen = Config.Settings.RetryRegenerate && samePrompt && null != Conversation.uuid;
+                    samePrompt || (prevMessages = JSON.parse(JSON.stringify(messages)));
+                    if (retryRegen) {
+                        console.log(model + ' [[2mR[0m]');
+                        fetchAPI = await (async (signal, body, model) => {
+                            const res = await fetch(AI.end() + '/api/retry_message', {
+                                signal,
+                                headers: {
+                                    ...AI.hdr(),
+                                    Cookie: getCookies()
+                                },
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    completion: {
+                                        prompt: '',
+                                        timezone: 'America/New_York',
+                                        model
+                                    },
+                                    organization_uuid: uuidOrg,
+                                    conversation_uuid: Conversation.uuid,
+                                    text: ''
+                                })
+                            });
+                            updateCookies(res);
+                            return res;
+                        })(signal, 0, model);
+                    } else if (shouldRenew) {
+                        Conversation.uuid && await deleteChat(Conversation.uuid);
+                        fetchAPI = await (async signal => {
+                            Conversation.uuid = randomUUID().toString();
+                            Conversation.depth = 0;
+                            const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+                                signal,
+                                headers: {
+                                    ...AI.hdr(),
+                                    Cookie: getCookies()
+                                },
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    uuid: Conversation.uuid,
+                                    name: ''
+                                })
+                            });
+                            updateCookies(res);
+                            return res;
+                        })(signal);
+                        console.log(model + ' [[2mr[0m]');
+                        prompt = messagesToPrompt(messages);
+                    } else if (!samePrompt) {
+                        const systemExperiment = !Config.Settings.RenewAlways && Config.Settings.SystemExperiments;
+                        const fullSystem = !systemExperiment || systemExperiment && Conversation.depth >= Config.SystemInterval;
+                        const systemMessages = [ ...new Set(JSON.parse(JSON.stringify(messages)).filter((message => !message.name && 'system' === message.role)).filter((message => false === [ '[Start a new chat]', Replacements.new_chat ].includes(message.content)))) ];
+                        let trimmedMessages;
+                        let chosenPrompt;
+                        if (fullSystem) {
+                            console.log(`${model} [[2mc-r[0m] ${systemMessages.map((message => `"${message.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`)).join(' [33m/[0m ')}`);
+                            trimmedMessages = [ ...systemMessages, curPrompt.lastAssistant, curPrompt.lastUser ];
+                            Conversation.depth = 0;
+                            chosenPrompt = Config.PromptReminder;
+                        } else {
+                            const jailbreak = systemMessages[systemMessages.length - 1];
+                            console.log(`${model} [[2mc-c[0m] "${jailbreak.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`);
+                            trimmedMessages = [ ...systemMessages, curPrompt.lastUser ];
+                            chosenPrompt = Config.PromptContinue;
+                        }
+                        prompt = messagesToPrompt(trimmedMessages, chosenPrompt);
+                        Conversation.depth++;
+                    }
+                    retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
+                        const attachments = [];
+                        if (Config.Settings.PromptExperiment) {
+                            attachments.push({
+                                extracted_content: prompt,
+                                file_name: fileName(),
+                                file_size: Buffer.from(prompt).byteLength,
+                                file_type: 'text/plain'
+                            });
+                            prompt = '';
+                        }
+                        const res = await fetch(AI.end() + '/api/append_message', {
+                            signal,
+                            headers: {
+                                ...AI.hdr(),
+                                Cookie: getCookies()
+                            },
+                            method: 'POST',
+                            body: JSON.stringify({
+                                completion: {
+                                    ...Config.Settings.PassParams && {
+                                        temperature
+                                    },
+                                    prompt,
+                                    timezone: 'America/New_York',
+                                    model
+                                },
+                                organization_uuid: uuidOrg,
+                                conversation_uuid: Conversation.uuid,
+                                text: prompt,
+                                attachments
+                            })
+                        });
+                        updateCookies(res);
+                        return res;
+                    })(signal, 0, model, prompt, temperature));
+                    const response = Writable.toWeb(res);
+                    if (429 === fetchAPI.status) {
+                        const err = {
+                            message: 'Rate limited',
+                            code: fetchAPI.status
+                        };
+                        try {
+                            const json = await fetchAPI.json();
+                            if (json.error) {
+                                err.message = json.error.message;
+                                if (json.error.resets_at) {
+                                    const hours = ((new Date(1e3 * json.error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
+                                    err.message += `, expires in ${hours} hours`;
+                                }
+                            }
+                        } catch (err) {}
+                        throw Error(err.message);
+                    }
+                    if (200 !== fetchAPI.status) {
+                        return fetchAPI.body.pipeTo(response);
+                    }
+                    clewdStream = new ClewdStream(Config.BufferSize, model, controller);
+                    titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
+                    await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                } catch (err) {
+                    if ('AbortError' === err.name) {
+                        return res.end();
+                    }
+                    console.error('[33mClewd:[0m\n%o', err);
+                    res.json({
+                        error: {
+                            message: 'clewd: ' + (err.message || err.name || err.type),
+                            type: err.type || err.name || err.code,
+                            param: null,
+                            code: err.code || 500
+                        }
+                    });
+                } finally {
+                    clearInterval(titleTimer);
+                    if (clewdStream) {
+                        clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
+                        prevImpersonated = clewdStream.impersonated;
+                        console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m ${clewdStream.broken} broken\n`);
+                        setTitle('ok ' + bytesToSize(clewdStream.size));
+                        clewdStream.empty();
+                    }
+                    if (prevImpersonated) {
+                        try {
+                            await deleteChat(Conversation.uuid);
+                        } catch (err) {}
+                    }
+                }
+            }));
+        })(req, res);
+
+      case '/v1/complete':
+        return res.json({
+            error: {
+                message: 'clewd: Set "Chat Completion source" to OpenAI instead of Claude. Enable "External" models aswell'
+            }
+        });
+
+      default:
         return res.json({
             error: {
                 message: '404 Not Found',
@@ -365,213 +719,47 @@ const Proxy = Server(((req, res) => {
             }
         }, 404);
     }
-    setTitle('recv...');
-    let fetchAPI;
-    const controller = new AbortController;
-    const {signal: signal} = controller;
-    res.socket.on('close', (async () => {
-        controller.signal.aborted || controller.abort();
-    }));
-    const buffer = [];
-    req.on('data', (chunk => {
-        buffer.push(chunk);
-    }));
-    req.on('end', (async () => {
-        let titleTimer;
-        let promptSHA;
-        try {
-            const body = JSON.parse(Buffer.concat(buffer).toString());
-            const attachments = [];
-            const temperature = Math.max(0, Math.min(1, body.temperature));
-            let {prompt: prompt} = body;
-            const samePrompt = Settings.RetryRegenerate && prompt === lastPrompt;
-            samePrompt || (lastPrompt = prompt);
-            if (!body.stream && prompt === `${Human}${Human}Hi${Assistant}`) {
-                return res.json({
-                    error: false
-                });
-            }
-            const model = /claude-v?2.*/.test(body.model) ? AI.modelA() : body.model;
-            model !== AI.modelA() && console.log(`[33mmodel[0m [1m${AI.modelA()}[0m [33mrecommended[0m`);
-            stallProtected() || body.stream || Settings.PreventImperson || console.log('[33mhaving[0m [1mPreventImperson[0m: true or [1mAntiStall[0m [33m: 1/2 is good when not streaming[0m');
-            const firstAssistantIdx = indexOfA(prompt);
-            const lastAssistantIdx = indexOfA(prompt, true);
-            const lastHumanIdx = indexOfH(prompt, true);
-            /**
-             * Ideally SillyTavern would expose a unique frontend conversation_uuid prop to localhost proxies
-             * could set the name to a hash of it
-             * then fetch /chat_conversations with 'GET' and find it
-             * @preserve 
-             */
-			const hash = Hash('sha1');
-            hash.update(prompt.substring(0, firstAssistantIdx));
-            promptSHA = Settings.RecycleChats ? hash.digest('hex') : '';
-            const uuidOld = UUIDMap[promptSHA];
-            Settings.StripHuman && lastHumanIdx > -1 && uuidOld && (prompt = prompt.substring(lastHumanIdx, prompt.length));
-            Settings.StripAssistant && lastAssistantIdx > -1 && (prompt = prompt.substring(0, lastAssistantIdx));
-            prompt = (text => {
-                const replacers = {
-                    H: [ /(\n{2,}H: )/gm, Human ],
-                    A: [ /(\n{2,}A: )/gm, Assistant ]
-                };
-                return Settings.ReplaceSamples && (replacers.H[0].test(text) || replacers.A[0].test(text)) ? text.replace(replacers.H[0], replacers.H[1]).replace(replacers.A[0], replacers.A[1]) : text;
-            })(genericFixes(prompt));
-            if (Settings.PromptExperiment && !samePrompt) {
-                attachments.push({
-                    extracted_content: prompt,
-                    file_name: fileName(),
-                    file_size: Buffer.from(prompt).length,
-                    file_type: 'text/plain'
-                });
-                prompt = '';
-            }
-            if (!uuidOld && Settings.RecycleChats || !samePrompt) {
-                uuidTemp = randomUUID().toString();
-                fetchAPI = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
-                    signal: signal,
-                    headers: {
-                        Cookie: getCookies(),
-                        'Content-Type': 'application/json'
-                    },
-                    method: 'POST',
-                    body: JSON.stringify({
-                        uuid: uuidTemp,
-                        name: promptSHA
-                    })
-                });
-                updateCookies(fetchAPI);
-                console.log('' + model);
-                UUIDMap[promptSHA] = uuidTemp;
-            } else {
-                uuidTemp = uuidOld;
-                samePrompt && Settings.RecycleChats ? console.log(model + ' [rR]') : samePrompt ? console.log(model + ' [r]') : Settings.RecycleChats ? console.log(model + ' [R]') : console.log('' + model);
-            }
-            fetchAPI = await fetch(`${AI.end()}${samePrompt ? '/api/retry_message' : '/api/append_message'}`, {
-                signal: signal,
-                headers: {
-                    Cookie: getCookies(),
-                    'Content-Type': 'application/json'
-                },
-                method: 'POST',
-                body: JSON.stringify({
-                    completion: {
-                        ...Settings.PassParams && {
-                            temperature: temperature
-                        },
-                        incremental: true === body.stream,
-                        prompt: prompt,
-                        timezone: 'America/New_York',
-                        model: model
-                    },
-                    organization_uuid: uuidOrg,
-                    conversation_uuid: uuidTemp,
-                    text: prompt,
-                    attachments: attachments
-                })
-            });
-            updateCookies(fetchAPI);
-            const response = Writable.toWeb(res);
-            if (200 !== fetchAPI.status) {
-                return fetchAPI.body.pipeTo(response);
-            }
-            const clewdStream = new ClewdStream(BufferSize, model, true === body.stream, controller);
-            titleTimer = setInterval((() => setTitle(`recv${true === body.stream ? ' (s)' : ''} ${((bytes = 0) => {
-                const b = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
-                if (0 === bytes) {
-                    return '0 B';
-                }
-                const c = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 4);
-                return 0 === c ? `${bytes} ${b[c]}` : `${(bytes / 1024 ** c).toFixed(1)} ${b[c]}`;
-            })(clewdStream.size)}`)), 300);
-            await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
-            clewdStream.censored && console.log('[33mlikely your account is hard-censored[0m');
-            console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m${true === samePrompt ? ' [r]' : ''}${true === body.stream ? ' (s)' : ''} ${clewdStream.broken} broken\n`);
-            clewdStream.empty();
-        } catch (err) {
-            if ('AbortError' === err.name) {
-                return res.end();
-            }
-            console.error('clewd API error:\n%o', err);
-            res.json({
-                error: {
-                    message: 'clewd: ' + (err.message || err.name),
-                    type: err.type || err.code || err.name,
-                    param: null,
-                    code: 500
-                }
-            });
-        } finally {
-            clearInterval(titleTimer);
-            titleTimer = null;
-            if (Settings.DeleteChats && !Settings.RetryRegenerate && !Settings.RecycleChats) {
-                try {
-                    await deleteChat(uuidTemp);
-                } catch (err) {}
-                delete UUIDMap[promptSHA];
-            }
-        }
-    }));
 }));
 
-Proxy.listen(Port, Ip, (async () => {
-    const accRes = await fetch(AI.end() + '/api/organizations', {
-        method: 'GET',
-        headers: {
-            Cookie: Cookie
+!async function() {
+    await (async () => {
+        if (FS.existsSync(ConfigPath)) {
+            const userConfig = require(ConfigPath);
+            const validConfigs = Object.keys(Config);
+            const parsedConfigs = Object.keys(userConfig);
+            const parsedSettings = Object.keys(userConfig.Settings);
+            const invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config)));
+            const validSettings = Object.keys(Config.Settings);
+            const invalidSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
+            invalidConfigs.forEach((config => {
+                console.warn(`invalid config in config.js: [33m${config}[0m`);
+            }));
+            invalidSettings.forEach((setting => {
+                console.warn(`invalid setting in config.js: Settings.[33m${setting}[0m`);
+            }));
+            const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config)));
+            const missingSettings = validSettings.filter((config => !parsedSettings.includes(config)));
+            missingConfigs.forEach((config => {
+                console.warn(`missing config in config.js: [33m${config}[0m, adding it`);
+                userConfig[config] = Config[config];
+            }));
+            missingSettings.forEach((setting => {
+                console.warn(`missing setting in config.js: Settings.[33m${setting}[0m, adding it`);
+                userConfig.Settings[setting] = Config.Settings[setting];
+            }));
+            NonDefaults = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
+            await writeSettings(userConfig);
+            Config = {
+                ...Config,
+                ...userConfig
+            };
+        } else {
+            Config.Cookie = 'SET YOUR COOKIE HERE';
+            writeSettings(Config, true);
         }
-    });
-    const accInfo = (await accRes.json())?.[0];
-    if (!accInfo || accInfo.error) {
-        throw Error('Couldn\'t get account info ' + (accInfo?.error ? accInfo.error.message : 'have you set your cookie?'));
-    }
-    if (!accInfo?.uuid) {
-        throw Error('Invalid account id');
-    }
-    setTitle('ok');
-    updateCookies(Cookie);
-    updateCookies(accRes);
-    console.log(`[2mclewd v2.6[0m\n[33mhttp://${Ip}:${Port}/v1[0m\n\n${Object.keys(Settings).map((setting => `[1m${setting}:[0m [36m${Settings[setting]}[0m`)).sort().join('\n')}\n`);
-    console.log('Logged in %o', {
-        name: accInfo.name?.split('@')?.[0],
-        capabilities: accInfo.capabilities
-    });
-    uuidOrg = accInfo?.uuid;
-    if (accInfo?.active_flags.length > 0) {
-        const flagNames = accInfo.active_flags.map((flag => flag.type));
-        console.warn('[31mYour account has warnings[0m %o', flagNames);
-        Settings.ClearFlags && await Promise.all(flagNames.map((flag => (async flag => {
-            if ('consumer_restricted_mode' === flag) {
-                return;
-            }
-            const req = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/flags/${flag}/dismiss`, {
-                headers: {
-                    Cookie: getCookies(),
-                    'Content-Type': 'application/json'
-                },
-                method: 'POST'
-            });
-            updateCookies(req);
-            const json = await req.json();
-            console.log(`${flag}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
-        })(flag))));
-    }
-    if (Settings.RecycleChats || Settings.DeleteChats) {
-        const convRes = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
-            method: 'GET',
-            headers: {
-                Cookie: getCookies()
-            }
-        });
-        const conversations = await convRes.json();
-        conversations.filter((chat => chat.name.length > 0)).forEach((chat => UUIDMap[chat.name] = chat.uuid));
-        updateCookies(convRes);
-        if (Settings.DeleteChats && conversations.length > 0) {
-            console.log(`wiping ${conversations.length} old chats`);
-            await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
-        }
-    }
-}));
-
-Proxy.on('error', (err => {
-    console.error('Proxy error\n%o', err);
-}));
+    })();
+    Proxy.listen(Config.Port, Config.Ip, onListen);
+    Proxy.on('error', (err => {
+        console.error('Proxy error\n%o', err);
+    }));
+}();
