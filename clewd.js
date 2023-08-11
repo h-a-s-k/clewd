@@ -553,11 +553,8 @@ const Proxy = Server((async (req, res) => {
                     };
                     let prompt;
                     samePrompt = JSON.stringify(messages.filter((message => 'system' !== message.role)).sort()) === JSON.stringify(prevMessages.filter((message => 'system' !== message.role)).sort());
-                    curPrompt.lastUser.content, prevPrompt.lastUser?.content;
-                    curPrompt.lastAssistant.content, prevPrompt.lastAssistant?.content;
-                    const contextReduced = false;
-                    const sameCharDiffChat = !samePrompt && !contextReduced && curPrompt.firstSystem?.content === prevPrompt.firstSystem?.content && curPrompt.firstUser.content !== prevPrompt.firstUser?.content;
-                    shouldRenew = Config.Settings.RenewAlways || !Conversation.uuid || prevImpersonated || !Config.Settings.RenewAlways && samePrompt || contextReduced || sameCharDiffChat;
+                    const sameCharDiffChat = !samePrompt && curPrompt.firstSystem?.content === prevPrompt.firstSystem?.content && curPrompt.firstUser.content !== prevPrompt.firstUser?.content;
+                    shouldRenew = Config.Settings.RenewAlways || !Conversation.uuid || prevImpersonated || !Config.Settings.RenewAlways && samePrompt || sameCharDiffChat;
                     retryRegen = Config.Settings.RetryRegenerate && samePrompt && null != Conversation.uuid;
                     samePrompt || (prevMessages = JSON.parse(JSON.stringify(messages)));
                     if (retryRegen) {
