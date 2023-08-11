@@ -6,7 +6,7 @@
     width="120"
     alt="Clewd"
     title="Clewd"
-    src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
+    src="https://gitgud.io/ahsk/clewd/-/raw/master/media/logo.png"
     align="left"
   />
 
@@ -105,5 +105,3 @@ decent **with** streaming
 > ### [Download latest version](https://gitgud.io/ahsk/clewd/)
 
 > ### [Download 2.7](https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip)
-
-> ### [Download 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)

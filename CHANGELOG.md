@@ -6,7 +6,7 @@
     width="120"
     alt="Clewd"
     title="Clewd"
-    src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
+    src="https://gitgud.io/ahsk/clewd/-/raw/master/media/logo.png"
     align="center"
   />
 </a>
