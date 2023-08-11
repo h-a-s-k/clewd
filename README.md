@@ -81,9 +81,11 @@ nodejs>=20.4.*
     * true strips the "Assistant:" prefix from the last assistant message
 
  10. `StripHuman`: (false)/true
+
     * true strips the "Human:" prefix from the last human message
 
  11. `SystemExperiments`: (true)/false
+
     * only has any effect when `RenewAlways` is false
     * true alternates between Reminder and Continue prompts
     * false only uses Reminder
