@@ -22,7 +22,11 @@ const Encoder = new TextEncoder;
 
 let NonDefaults;
 
+let Logger;
+
 const ConfigPath = Path.join(__dirname, './config.js');
+
+const LogPath = Path.join(__dirname, './log.txt');
 
 const Replacements = {
     user: 'Human: ',
@@ -32,7 +36,7 @@ const Replacements = {
     example_assistant: 'A: '
 };
 
-const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
 
 const Conversation = {
     char: null,
@@ -62,6 +66,7 @@ let uuidOrg;
     Port: 8444,
     BufferSize: 8,
     SystemInterval: 3,
+    LogMessages: false,
     Settings: {
         AllSamples: false,
         ClearFlags: false,
@@ -82,7 +87,7 @@ let uuidOrg;
     PromptContinue: '{{JAILBREAK}}\n{{LATEST_USER}}'
 };
 
-const Main = 'clewd v3.0';
+const Main = 'clewd v3.1';
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -193,7 +198,7 @@ const messagesToPrompt = (messages, customPrompt) => {
     }
     let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
     let sampleChats = messagesClone.filter((message => message.name && message.name.startsWith('example_')));
-    Config.Settings.AllSamples && !Config.Settings.NoSamples && chatLogs.forEach(((message, idx) => {
+    Config.Settings.AllSamples && !Config.Settings.NoSamples && chatLogs.forEach((message => {
         if (message !== lastUser && message !== lastAssistant) {
             if ('user' === message.role) {
                 message.name = 'example_user';
@@ -207,7 +212,7 @@ const messagesToPrompt = (messages, customPrompt) => {
             }
         }
     }));
-    Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleChats.forEach(((message, idx) => {
+    Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleChats.forEach((message => {
         if ('example_user' === message.name) {
             message.role = 'user';
         } else {
@@ -308,7 +313,7 @@ const onListen = async () => {
 };
 
 class ClewdStream extends TransformStream {
-    constructor(minSize = 8, modelName = AI.modelA(), abortController) {
+    constructor(minSize = 8, modelName = AI.modelA(), streaming, abortController) {
         super({
             transform: (chunk, controller) => {
                 this.#handle(chunk, controller);
@@ -318,9 +323,11 @@ class ClewdStream extends TransformStream {
             }
         });
         this.#modelName = modelName;
+        this.#streaming = streaming;
         this.#minSize = minSize;
         this.#abortController = abortController;
     }
+    #streaming=void 0;
     #minSize=void 0;
     #compOK='';
     #abortController=void 0;
@@ -366,22 +373,29 @@ class ClewdStream extends TransformStream {
         return selection;
     }
     #build(selection) {
-        const completion = {
+        Logger?.write(selection);
+        const completion = this.#streaming ? {
             choices: [ {
                 delta: {
                     content: genericFixes(selection)
                 }
             } ]
+        } : {
+            choices: [ {
+                message: {
+                    content: genericFixes(selection)
+                }
+            } ]
         };
-        return Encoder.encode(`data: ${JSON.stringify(completion)}\n\n`);
+        return this.#streaming ? Encoder.encode(`data: ${JSON.stringify(completion)}\n\n`) : JSON.stringify(completion);
     }
     #print() {}
     #done(controller) {
         this.#print();
         330 === this.#recvLength && (this.#hardCensor = true);
-        this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
+        this.#streaming ? this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK)) : controller.enqueue(this.#build(this.#compAll.join('')));
     }
-    #impersonationCheck(controller) {
+    #impersonationCheck(reply, controller) {
         const fakeAny = ((text, last = false) => {
             let location = -1;
             const fakeHuman = ((text, last = false) => {
@@ -399,12 +413,12 @@ class ClewdStream extends TransformStream {
             const fakes = [ fakeHuman, fakeAssistant ].filter((idx => idx > -1)).sort();
             location = last ? fakes.reverse()[0] : fakes[0];
             return isNaN(location) ? -1 : location;
-        })(this.#compOK);
+        })(reply);
         if (fakeAny > -1) {
             this.#impersonated = true;
             if (Config.Settings.PreventImperson) {
-                const selection = this.#compOK.substring(0, fakeAny);
-                console.warn(`[33mimpersonation, dropped:[0m "[4m${this.#compOK.substring(fakeAny, Math.min(25, this.#compOK.length)).replace(/\n/g, '\\n')}[0m..."`);
+                const selection = reply.substring(0, fakeAny);
+                console.warn(`[33mimpersonation, dropped:[0m "[4m${reply.substring(fakeAny, reply.length).replace(/\n/g, '\\n')}[0m..."`);
                 controller.enqueue(this.#build(selection));
                 this.#print();
                 this.#abortController.abort();
@@ -441,15 +455,19 @@ class ClewdStream extends TransformStream {
         } finally {
             this.#stopReason = parsed.stop_reason;
             this.#stopLoc = parsed.stop;
-            this.#compAll.push(parsed.completion);
         }
-        if (parsed.completion && !(parsed.completion.length < 1)) {
+        if (parsed.completion) {
             delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
             this.#compOK += parsed.completion;
-            delayChunk && this.#impersonationCheck(controller);
-            for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
-                const selection = this.#cutBuffer();
-                controller.enqueue(this.#build(selection));
+            this.#compAll.push(parsed.completion);
+            if (this.#streaming) {
+                delayChunk && this.#impersonationCheck(this.#compOK, controller);
+                for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
+                    const selection = this.#cutBuffer();
+                    controller.enqueue(this.#build(selection));
+                }
+            } else {
+                delayChunk && this.#impersonationCheck(this.#compAll.join(''), controller);
             }
         }
     }
@@ -509,9 +527,6 @@ const Proxy = Server((async (req, res) => {
                                 }
                             } ]
                         });
-                    }
-                    if (!body.stream) {
-                        throw Error('Turn "Streaming" on (not legacy streaming)');
                     }
                     if (Config.Settings.AllSamples && Config.Settings.NoSamples) {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
@@ -668,7 +683,8 @@ const Proxy = Server((async (req, res) => {
                     if (200 !== fetchAPI.status) {
                         return fetchAPI.body.pipeTo(response);
                     }
-                    clewdStream = new ClewdStream(Config.BufferSize, model, controller);
+                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n### PROMPT:\n${prompt}\n--\n### REPLY:\n`);
+                    clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
                     titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
                     await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
                 } catch (err) {
@@ -732,23 +748,24 @@ const Proxy = Server((async (req, res) => {
             const validSettings = Object.keys(Config.Settings);
             const invalidSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
             invalidConfigs.forEach((config => {
-                console.warn(`invalid config in config.js: [33m${config}[0m`);
+                console.warn(`unknown config in config.js: [33m${config}[0m`);
             }));
             invalidSettings.forEach((setting => {
-                console.warn(`invalid setting in config.js: Settings.[33m${setting}[0m`);
+                console.warn(`unknown setting in config.js: [33mSettings.${setting}[0m`);
             }));
             const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config)));
             const missingSettings = validSettings.filter((config => !parsedSettings.includes(config)));
             missingConfigs.forEach((config => {
-                console.warn(`missing config in config.js: [33m${config}[0m, adding it`);
+                console.warn(`adding missing config in config.js: [33m${config}[0m`);
                 userConfig[config] = Config[config];
             }));
             missingSettings.forEach((setting => {
-                console.warn(`missing setting in config.js: Settings.[33m${setting}[0m, adding it`);
+                console.warn(`adding missing setting in config.js: [33mSettings.${setting}[0m`);
                 userConfig.Settings[setting] = Config.Settings[setting];
             }));
             NonDefaults = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
-            await writeSettings(userConfig);
+            (missingConfigs.length > 0 || missingSettings.length > 0) && await writeSettings(userConfig);
+            userConfig.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
             Config = {
                 ...Config,
                 ...userConfig
@@ -763,3 +780,16 @@ const Proxy = Server((async (req, res) => {
         console.error('Proxy error\n%o', err);
     }));
 }();
+
+process.on('SIGINT', (async () => {
+    console.log('cleaning...');
+    try {
+        await deleteChat(Conversation.uuid);
+        Logger?.close();
+    } catch (err) {}
+    process.exit(0);
+}));
+
+process.on('exit', (async () => {
+    console.log('exiting...');
+}));
