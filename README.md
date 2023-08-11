@@ -6,7 +6,7 @@
     width="120"
     alt="Clewd"
     title="Clewd"
-    src="https://gitgud.io/ahsk/clewd/-/raw/master/logo.png"
+    src="https://gitgud.io/ahsk/clewd/-/raw/master/media/logo.png"
     align="left"
   />
 
@@ -24,7 +24,7 @@ Warning: Some accounts are getting _hard-blacklisted_ by the **rats**, you might
    <img src="https://gitgud.io/ahsk/clewd/-/raw/1.6/program.png">
 </a>
 <hr>
-
+<h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#16-to-20">CHANGELOG</a></h2>
 </div>
 
 ## Requirements
