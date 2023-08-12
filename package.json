@@ -15,10 +15,10 @@
   ],
   "author": { "name": "ahsk", "url": "https://gitgud.io/ahsk" },
   "contributors": [{ "name": "ahsk", "url": "https://gitgud.io/ahsk" }, { "name": "h-a-s-k", "url": "https://github.com/h-a-s-k" }],
-  "homepage": "https://gitgud.io/ahsk/clewd",
+  "homepage": "https://rentry.org/teralomaniac_clewd",
   "repository": {
     "type": "git",
-    "url": "git+https://gitgud.io/ahsk/clewd.git"
+    "url": "git+https://github.com/teralomaniac/clewd.git"
   },
   "bugs": {
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
