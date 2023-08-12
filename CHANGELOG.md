@@ -12,6 +12,14 @@
 </a>
 </div>
 
+# 3.1
+> **Streaming changes**
+
+if the user did not enable streaming, we will **fake** a non-stream response for compatibility
+
+> **LogMessages** added (defaults false)
+
+if set to true, will log the prompt and then the reply to a `log.txt` file
 
 # 3.0
 > ### **Clewd requires setting your "Chat Completion source" to OpenAI now. Enable the "External" models option aswell.**
