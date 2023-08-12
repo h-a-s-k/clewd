@@ -10,12 +10,13 @@
     align="left"
   />
 
-doom & coom
 </a>
+
 <br>
 
-Warning: Some accounts are getting _hard-censored_ by the **rats**, you might notice it
+[原版Clewd](https://gitgud.io/ahsk/clewd) 
 
+[Clewd教程](https://rentry.org/teralomaniac_clewd) 
 <br>
 <br>
 <hr>
