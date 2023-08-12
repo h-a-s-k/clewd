@@ -23,6 +23,6 @@
   "bugs": {
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
-  "dependencies": {},
+  "dependencies": {"localtunnel": "^2.0.2"},
   "devDependencies": {}
 }
