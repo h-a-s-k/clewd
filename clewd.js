@@ -28,12 +28,6 @@ const padJson = (json) => {
     return result
 };
 
-const RemoveFirstH = (json) => {
-    const regex = /^\s*(H(?:uman)?:)/;
-    const result = json.replace(regex, '').trim();
-    return result
-};
-
 const AddxmlPlot = (content) => {
     // 检查内容中是否包含"<card>","[Start a new"字符串
     if (!content.includes('<card>')) {
@@ -84,7 +78,6 @@ const AddxmlPlot = (content) => {
 
     return content
 };
-
 /***********************/
 
 const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http');
@@ -140,6 +133,7 @@ let prevImpersonated = false;
 
 let uuidOrg;
 
+/******************************************************* */
 /**
  * Edit settings in your config.js instead
  * these are the defaults and change every update
@@ -154,7 +148,7 @@ let uuidOrg;
     Settings: {
         AllSamples: process.env.AllSamples || false,
         ClearFlags: process.env.ClearFlags || true,
-        deleteChatoff: process.env.deleteChatoff || true,
+        DeleteChatoff: process.env.DeleteChatoff || true,
         FullColon: process.env.FullColon || true,
         localtunnel: process.env.localtunnel || false,       
         NoSamples: process.env.NoSamples || false,
@@ -166,8 +160,7 @@ let uuidOrg;
         RenewAlways: process.env.RenewAlways || true,
         StripAssistant: process.env.StripAssistant || false,
         StripHuman: process.env.StripHuman || false,
-        StripFirstH: process.env.StripFirstH || true,
-        ProxyWebsite: process.env.ProxyWebsite || false,
+        VPNfree: process.env.VPNfree || false,
         xmlPlot: process.env.xmlPlot || true,
         SystemExperiments: process.env.SystemExperiments || true
     },
@@ -179,6 +172,7 @@ let uuidOrg;
 };
 
 const Main = 'clewd v3.1修改版';
+/**************************************************** */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -195,7 +189,7 @@ Array.prototype.sample = function() {
 };
 
 const AI = {
-    end: () => Config.Settings.ProxyWebsite ? 'https://chat.claudeai.ai' : Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
+    end: () => Config.Settings.VPNfree ? Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 104, 97, 116, 46, 99, 108, 97, 117, 100, 101, 97, 105, 46, 97, 105 ]).toString() : Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
     modelA: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
     modelB: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 105, 110, 115, 116, 97, 110, 116, 45, 49 ]).toString(),
     agent: () => JSON.parse(Buffer.from([ 91, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 53, 46, 48, 46, 49, 57, 48, 49, 46, 49, 56, 56, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 59, 32, 114, 118, 58, 49, 48, 57, 46, 48, 41, 32, 71, 101, 99, 107, 111, 47, 50, 48, 49, 48, 48, 49, 48, 49, 32, 70, 105, 114, 101, 102, 111, 120, 47, 49, 49, 54, 46, 48, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 79, 80, 82, 47, 49, 48, 50, 46, 48, 46, 48, 46, 48, 34, 93 ]).toString()).sample(),
@@ -246,7 +240,7 @@ const updateCookies = cookieInfo => {
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
 const deleteChat = async uuid => {
-    if (!uuid || Config.Settings.deleteChatoff) {
+    if (!uuid || Config.Settings.DeleteChatoff) {
         return;
     }
     const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
@@ -335,9 +329,8 @@ const setTitle = title => {
     process.title !== title && (process.title = title);
 };
 
-const onListen = async () => {
-/********************************************** */    
-    if (('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) && !process.env.Cookie) {
+const onListen = async () => {    
+    if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
     const accRes = await fetch(AI.end() + '/api/organizations', {
@@ -575,7 +568,7 @@ class ClewdStream extends TransformStream {
 }
 
 const writeSettings = async (config, firstRun = false) => {
-    FS.writeFileSync(ConfigPath, `/*\n* https://rentry.org/teralomaniac_clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval, PromptMain, PromptReminder, PromptContinue\n * when \`RenewAlways\` is set to true (default), \`Main\` is always the one being used\n\n * when \`RenewAlways\` is set to false, \`Main\` is sent on conversation start\n * then only \`Continue\` is sent as long as no impersonation happened\n * \`Simple\` and \`Reminder\` alternate every \`SystemInterval\`\n * \n * {{MAIN_AND_CHARACTER}}, {{CHAT_EXAMPLE}}, {{CHAT_LOG}}, {{JAILBREAK}}, {{LATEST_ASSISTANT}}, {{LATEST_USER}}\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#anchor-30\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
+    FS.writeFileSync(ConfigPath, `/*\n* https://rentry.org/teralomaniac_clewd\n* https://github.com/teralomaniac/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval, PromptMain, PromptReminder, PromptContinue\n * when \`RenewAlways\` is set to true (default), \`Main\` is always the one being used\n\n * when \`RenewAlways\` is set to false, \`Main\` is sent on conversation start\n * then only \`Continue\` is sent as long as no impersonation happened\n * \`Simple\` and \`Reminder\` alternate every \`SystemInterval\`\n * \n * {{MAIN_AND_CHARACTER}}, {{CHAT_EXAMPLE}}, {{CHAT_LOG}}, {{JAILBREAK}}, {{LATEST_ASSISTANT}}, {{LATEST_USER}}\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#anchor-30\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
     if (firstRun) {
         console.warn('[33mConfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
         process.exit(0);
@@ -724,30 +717,24 @@ const Proxy = Server((async (req, res) => {
                         prompt = messagesToPrompt(trimmedMessages, chosenPrompt);
                         Conversation.depth++;
                     }
+/****************************************************************/                    
+                    if (Config.Settings.xmlPlot) {prompt = AddxmlPlot(prompt)};
+                    if (Config.Settings.FullColon) {prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：')};
+                    if (Config.Settings.padtxt) {prompt = padJson(prompt)};
+/****************************************************************/                    
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
 /****************************************************************/
-                        if (Config.Settings.StripFirstH) {prompt = RemoveFirstH(prompt)};
-                        if (Config.Settings.xmlPlot) {prompt = AddxmlPlot(prompt);}
-                        if (Config.Settings.FullColon) {prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：')};
-                        if (Config.Settings.PromptExperiment && Config.Settings.padtxt) {
+                        if (Config.Settings.PromptExperiment) {
                             attachments.push({
-                                extracted_content: padJson(prompt),
+                                extracted_content: (prompt),
                                 file_name: 'paste.txt',  //fileName(),
                                 file_size: Buffer.from(prompt).byteLength,
                                 file_type: 'txt'  //'text/plain'
                             });
                             prompt = '';
                         }
-                        else if (Config.Settings.PromptExperiment) {
-                            attachments.push({
-                                extracted_content: prompt,
-                                file_name: fileName(),
-                                file_size: Buffer.from(prompt).byteLength,
-                                file_type: 'text/plain'
-                            });
-                            prompt = '';
-                        }
+/****************************************************************/
                         const res = await fetch(AI.end() + '/api/append_message', {
                             signal,
                             headers: {
