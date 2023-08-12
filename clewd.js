@@ -336,7 +336,8 @@ const setTitle = title => {
 };
 
 const onListen = async () => {
-    if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
+/********************************************** */    
+    if (('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) && !process.env.Cookie) {
         throw Error('Set your cookie inside config.js');
     }
     const accRes = await fetch(AI.end() + '/api/organizations', {
