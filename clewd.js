@@ -145,7 +145,7 @@ let uuidOrg;
  * these are the defaults and change every update
  * @preserve
  */ let Config = {
-    Cookie: process.env.Cookie || '',
+    Cookie: '',
     Ip: process.env.PORT ? '0.0.0.0' : '127.0.0.1',
     Port: process.env.PORT || 8444,
     BufferSize: 1,
@@ -344,7 +344,7 @@ const onListen = async () => {
         method: 'GET',
         headers: {
             ...AI.hdr(),
-            Cookie: Config.Cookie
+            Cookie: process.env.Cookie || Config.Cookie //Config.Cookie
         }
     });
     const accInfo = (await accRes.json())?.[0];
@@ -355,7 +355,7 @@ const onListen = async () => {
         throw Error('Invalid account id');
     }
     setTitle('ok');
-    updateCookies(Config.Cookie);
+    updateCookies(process.env.Cookie || Config.Cookie); //Config.Cookie
     updateCookies(accRes);
     console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => `[1m${setting}:[0m ${NonDefaults.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
 /*******************************/    
