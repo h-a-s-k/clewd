@@ -881,18 +881,20 @@ const Proxy = Server((async (req, res) => {
                 ...Config,
                 ...userConfig
             };
-
+/********************************* */
             for (let key in Config) {
                 if (process.env[`${key.toUpperCase()}`]) {
                     Config[key] = process.env[`${key.toUpperCase()}`];
                 }
-            };
-            for (let key in Config.Settings) {
-                if (process.env[`${key.toUpperCase()}`]) {
-                    Config.Settings[key] = process.env[`${key.toUpperCase()}`];
+                if (key === 'Settings') {
+                    for (let setting in Config.Settings) {
+                        if (process.env[`${setting.toUpperCase()}`]) {
+                            Config.Settings[setting] = process.env[`${setting.toUpperCase()}`];
+                        }
+                    }
                 }
             };
-
+/******************************** */
         } else {
             Config.Cookie = 'SET YOUR COOKIE HERE';
             writeSettings(Config, true);
