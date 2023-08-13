@@ -12,6 +12,11 @@
 </a>
 </div>
 
+# 3.3
+added \[DONE\] to end of streams
+
+changed more things to support [RisuAI](https://files.catbox.moe/l243nm.png)
+
 # 3.2
 small streaming change to try to fix \n bullshit again
 
