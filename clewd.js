@@ -88,7 +88,7 @@ let uuidOrg;
     PromptContinue: '{{JAILBREAK}}\n{{LATEST_USER}}'
 };
 
-const Main = 'clewd v3.2';
+const Main = 'clewd v3.3';
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -391,13 +391,18 @@ class ClewdStream extends TransformStream {
                 }
             } ]
         };
-        return this.#streaming ? Encoder.encode(`data: ${JSON.stringify(completion)}\n\n`) : JSON.stringify(completion);
+        return this.#streaming ? (completion => Encoder.encode(`data: ${JSON.stringify(completion)}\n\n`))(completion) : JSON.stringify(completion);
     }
     #print() {}
     #done(controller) {
         this.#print();
         330 === this.#recvLength && (this.#hardCensor = true);
-        this.#streaming ? this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK)) : controller.enqueue(this.#build(this.#compAll.join('')));
+        if (this.#streaming) {
+            this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
+            controller.enqueue('[DONE]');
+        } else {
+            controller.enqueue(this.#build(this.#compAll.join('')));
+        }
     }
     #impersonationCheck(reply, controller) {
         const fakeAny = ((text, last = false) => {
@@ -424,6 +429,7 @@ class ClewdStream extends TransformStream {
                 const selection = reply.substring(0, fakeAny);
                 console.warn(`[33mimpersonation, dropped:[0m "[4m${reply.substring(fakeAny, reply.length).replace(/\n/g, '\\n')}[0m..."`);
                 controller.enqueue(this.#build(selection));
+                this.#streaming && controller.enqueue('[DONE]');
                 this.#print();
                 this.#abortController.abort();
                 return controller.terminate();
@@ -487,16 +493,26 @@ const writeSettings = async (config, firstRun = false) => {
 };
 
 const Proxy = Server((async (req, res) => {
+    if ('OPTIONS' === req.method) {
+        return ((req, res) => {
+            res.writeHead(200, {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+                'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+            }).end();
+        })(0, res);
+    }
     switch (req.url) {
       case '/v1/models':
-        return res.json({
+        res.json({
             data: [ {
                 id: AI.modelA()
             } ]
         });
+        break;
 
       case '/v1/chat/completions':
-        return ((req, res) => {
+        ((req, res) => {
             setTitle('recv...');
             let fetchAPI;
             const controller = new AbortController;
@@ -515,7 +531,8 @@ const Proxy = Server((async (req, res) => {
                 let shouldRenew = true;
                 let retryRegen = false;
                 try {
-                    const body = JSON.parse(Buffer.concat(buffer).toString());
+                    const bufferComplete = Buffer.concat(buffer).toString();
+                    const body = JSON.parse(bufferComplete);
                     const temperature = Math.max(.1, Math.min(1, body.temperature));
                     let {messages} = body;
                     if (messages?.length < 1) {
@@ -532,6 +549,17 @@ const Proxy = Server((async (req, res) => {
                                 }
                             } ]
                         });
+                    }
+                    res.setHeader('Access-Control-Allow-Origin', '*');
+                    body.stream && res.setHeader('Content-Type', 'text/event-stream');
+                    if (!body.stream && messages?.[0]?.content.startsWith('From the list below, choose a word that best represents a character\'s outfit description, action, or emotion in their dialogue.')) {
+                        return res.end(JSON.stringify({
+                            choices: [ {
+                                message: {
+                                    content: 'neutral'
+                                }
+                            } ]
+                        }));
                     }
                     if (Config.Settings.AllSamples && Config.Settings.NoSamples) {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
@@ -725,16 +753,19 @@ const Proxy = Server((async (req, res) => {
                 }
             }));
         })(req, res);
+        break;
 
       case '/v1/complete':
-        return res.json({
+        res.json({
             error: {
                 message: 'clewd: Set "Chat Completion source" to OpenAI instead of Claude. Enable "External" models aswell'
             }
         });
+        break;
 
       default:
-        return res.json({
+        console.log('unknown request: ' + req.url);
+        res.json({
             error: {
                 message: '404 Not Found',
                 type: 404,
