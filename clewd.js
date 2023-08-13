@@ -146,23 +146,23 @@ let uuidOrg;
     SystemInterval: 3,
     LogMessages: false,
     Settings: {
-        AllSamples: process.env.AllSamples || false,
-        ClearFlags: process.env.ClearFlags || true,
-        PreserveChats: process.env.PreserveChats || true,
-        FullColon: process.env.FullColon || true,
-        localtunnel: process.env.localtunnel || false,       
-        NoSamples: process.env.NoSamples || false,
-        padtxt: process.env.padtxt || true,
-        PassParams: process.env.PassParams || false,
-        PreventImperson: process.env.PreventImperson || false,
-        PromptExperiment: process.env.PromptExperiment || true,
-        RetryRegenerate: process.env.RetryRegenerate || false,
-        RenewAlways: process.env.RenewAlways || true,
-        StripAssistant: process.env.StripAssistant || false,
-        StripHuman: process.env.StripHuman || false,
-        VPNfree: process.env.VPNfree || false,
-        xmlPlot: process.env.xmlPlot || true,
-        SystemExperiments: process.env.SystemExperiments || true
+        AllSamples: false,
+        ClearFlags: true,
+        PreserveChats: true,
+        FullColon: true,
+        localtunnel: false,       
+        NoSamples: false,
+        padtxt: true,
+        PassParams: false,
+        PreventImperson: false,
+        PromptExperiment: true,
+        RetryRegenerate: false,
+        RenewAlways: true,
+        StripAssistant: false,
+        StripHuman: false,
+        VPNfree: false,
+        xmlPlot: true,
+        SystemExperiments: true
     },
     ExampleChatPrefix: '[Start a new Chat]\n\n',
     RealChatPrefix: '[Start a new Chat]\n\n',
@@ -240,7 +240,7 @@ const updateCookies = cookieInfo => {
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
 const deleteChat = async uuid => {
-    if (!uuid /*|| Config.Settings.DeleteChatoff*/) {
+    if (!uuid) {
         return;
     }
     if (uuid === Conversation.uuid) {
@@ -333,14 +333,14 @@ const setTitle = title => {
 };
 
 const onListen = async () => {    
-    if (('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) && !process.env.Cookie) {
+    if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
     const accRes = await fetch(AI.end() + '/api/organizations', {
         method: 'GET',
         headers: {
             ...AI.hdr(),
-            Cookie: process.env.Cookie || Config.Cookie //Config.Cookie
+            Cookie: Config.Cookie
         }
     });
     const accInfo = (await accRes.json())?.[0];
@@ -351,7 +351,7 @@ const onListen = async () => {
         throw Error('Invalid account id');
     }
     setTitle('ok');
-    updateCookies(process.env.Cookie || Config.Cookie); //Config.Cookie
+    updateCookies(Config.Cookie);
     updateCookies(accRes);
     console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => `[1m${setting}:[0m ${NonDefaults.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
 /*******************************/    
@@ -878,25 +878,25 @@ const Proxy = Server((async (req, res) => {
                 ...Config,
                 ...userConfig
             };
-/********************************* */
-            for (let key in Config) {
-                if (process.env[`${key.toUpperCase()}`]) {
-                    Config[key] = process.env[`${key.toUpperCase()}`];
-                }
-                if (key === 'Settings') {
-                    for (let setting in Config.Settings) {
-                        if (process.env[`${setting.toUpperCase()}`]) {
-                            Config.Settings[setting] = process.env[`${setting.toUpperCase()}`];
-                        }
-                    }
-                }
-            };
-/******************************** */
         } else {
             Config.Cookie = 'SET YOUR COOKIE HERE';
             writeSettings(Config, true);
         }
     })();
+/********************************* */
+    for (let key in Config) {
+        if (process.env[`${key.toUpperCase()}`]) {
+            Config[key] = process.env[`${key.toUpperCase()}`];
+        }
+        if (key === 'Settings') {
+            for (let setting in Config.Settings) {
+                if (process.env[`${setting.toUpperCase()}`]) {
+                    Config.Settings[setting] = process.env[`${setting.toUpperCase()}`];
+                }
+            }
+        }
+    };
+/******************************** */
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
