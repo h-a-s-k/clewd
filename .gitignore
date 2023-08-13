@@ -13,6 +13,7 @@ yarn-error.log*
 cookies.json
 cookies.js
 cookies.ini
+config.js
 
 # npm
 package-lock.json

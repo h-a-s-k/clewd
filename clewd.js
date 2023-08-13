@@ -139,7 +139,7 @@ let uuidOrg;
  * these are the defaults and change every update
  * @preserve
  */ let Config = {
-    Cookie: '',
+    Cookie: process.env.Cookie || '',
     Ip: process.env.PORT ? '0.0.0.0' : '127.0.0.1',
     Port: process.env.PORT || 8444,
     BufferSize: 1,
