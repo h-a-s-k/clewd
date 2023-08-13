@@ -148,7 +148,7 @@ let uuidOrg;
     Settings: {
         AllSamples: process.env.AllSamples || false,
         ClearFlags: process.env.ClearFlags || true,
-        DeleteChatoff: process.env.DeleteChatoff || true,
+        PreserveChats: process.env.PreserveChats || true,
         FullColon: process.env.FullColon || true,
         localtunnel: process.env.localtunnel || false,       
         NoSamples: process.env.NoSamples || false,
@@ -171,7 +171,7 @@ let uuidOrg;
     PromptContinue: '{{JAILBREAK}}\n\n{{LATEST_USER}}'
 };
 
-const Main = 'clewd v3.1修改版';
+const Main = 'clewd v3.2修改版';
 /**************************************************** */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
@@ -221,7 +221,7 @@ const bytesToSize = (bytes = 0) => {
 
 const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
 
-const genericFixes = text => text ? text.replace(/(\r\n|\r|\\n)/gm, '\n') : text;
+const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
 
 const updateCookies = cookieInfo => {
     let cookieNew = cookieInfo instanceof Response ? cookieInfo.headers?.get('set-cookie') : cookieInfo.split('\n').join('');
@@ -240,7 +240,14 @@ const updateCookies = cookieInfo => {
 const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
 
 const deleteChat = async uuid => {
-    if (!uuid || Config.Settings.DeleteChatoff) {
+    if (!uuid /*|| Config.Settings.DeleteChatoff*/) {
+        return;
+    }
+    if (uuid === Conversation.uuid) {
+        Conversation.uuid = null;
+        Conversation.depth = 0;
+    }
+    if (Config.Settings.PreserveChats) {
         return;
     }
     const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
@@ -251,10 +258,6 @@ const deleteChat = async uuid => {
         method: 'DELETE'
     });
     updateCookies(res);
-    if (uuid === Conversation.uuid) {
-        Conversation.uuid = null;
-        Conversation.depth = 0;
-    }
 };
 
 const messagesToPrompt = (messages, customPrompt) => {
@@ -551,9 +554,10 @@ class ClewdStream extends TransformStream {
             this.#stopLoc = parsed.stop;
         }
         if (parsed.completion) {
-            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
+            parsed.completion = genericFixes(parsed.completion);
             this.#compOK += parsed.completion;
             this.#compAll.push(parsed.completion);
+            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
             if (this.#streaming) {
                 delayChunk && this.#impersonationCheck(this.#compOK, controller);
                 for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
@@ -651,8 +655,10 @@ const Proxy = Server((async (req, res) => {
                     shouldRenew = Config.Settings.RenewAlways || !Conversation.uuid || prevImpersonated || !Config.Settings.RenewAlways && samePrompt || sameCharDiffChat;
                     retryRegen = Config.Settings.RetryRegenerate && samePrompt && null != Conversation.uuid;
                     samePrompt || (prevMessages = JSON.parse(JSON.stringify(messages)));
+                    let type = '';
                     if (retryRegen) {
                         console.log(model + ' [[2mR[0m]');
+                        type = 'R';
                         fetchAPI = await (async (signal, body, model) => {
                             const res = await fetch(AI.end() + '/api/retry_message', {
                                 signal,
@@ -696,8 +702,9 @@ const Proxy = Server((async (req, res) => {
                             return res;
                         })(signal);
                         console.log(model + ' [[2mr[0m]');
+                        type = 'r';
                         prompt = messagesToPrompt(messages);
-                    } else if (!samePrompt) {
+                    } else if (samePrompt) {} else {
                         const systemExperiment = !Config.Settings.RenewAlways && Config.Settings.SystemExperiments;
                         const fullSystem = !systemExperiment || systemExperiment && Conversation.depth >= Config.SystemInterval;
                         const systemMessages = [ ...new Set(JSON.parse(JSON.stringify(messages)).filter((message => !message.name && 'system' === message.role)).filter((message => false === [ '[Start a new chat]', Replacements.new_chat ].includes(message.content)))) ];
@@ -708,11 +715,13 @@ const Proxy = Server((async (req, res) => {
                             trimmedMessages = [ ...systemMessages, curPrompt.lastAssistant, curPrompt.lastUser ];
                             Conversation.depth = 0;
                             chosenPrompt = Config.PromptReminder;
+                            type = 'c-r';
                         } else {
                             const jailbreak = systemMessages[systemMessages.length - 1];
                             console.log(`${model} [[2mc-c[0m] "${jailbreak.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`);
                             trimmedMessages = [ ...systemMessages, curPrompt.lastUser ];
                             chosenPrompt = Config.PromptContinue;
+                            type = 'c-c';
                         }
                         prompt = messagesToPrompt(trimmedMessages, chosenPrompt);
                         Conversation.depth++;
@@ -781,7 +790,8 @@ const Proxy = Server((async (req, res) => {
                     if (200 !== fetchAPI.status) {
                         return fetchAPI.body.pipeTo(response);
                     }
-                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n### PROMPT:\n${prompt}\n--\n### REPLY:\n`);
+                    'R' !== type || prompt || (prompt = '...regen...');
+                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
                     clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
                     titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
                     await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);

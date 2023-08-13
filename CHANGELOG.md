@@ -12,6 +12,13 @@
 </a>
 </div>
 
+# 3.2
+small streaming change to try to fix \n bullshit again
+
+> **PreserveChats** added (defaults false)
+
+if set to true, prevents the deletion of chats at any point
+
 # 3.1
 > **Streaming changes**
 

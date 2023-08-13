@@ -43,9 +43,6 @@ nodejs>=20.4.*
     - Human->H
     - Assistant->A
 
- - `ClearFlags`: (false)/true
-    * possibly snake-oil
-
  - `NoSamples`: (false)/true
     * mutually exclusive with `AllSamples`
     * true converts all "sample dialogues" to real dialogue
@@ -69,9 +66,16 @@ nodejs>=20.4.*
     * true is an alternative way to send your prompt to the AI
     * experiment before setting to false
 
+ - `ClearFlags`: (false)/true
+    * possibly snake-oil
+    * clears your warnings
+
+ - `PreserveChats`: (false)/true
+    * true prevents the deletion of old chats at any point
+
  - `RenewAlways`: (true)/false
-    * true is the default pre-3.0 behavior
-    * false is basically a better version of the old `RecycleChats`
+    * true makes a new conversation context each time
+    * false *tries* to reutilize the same old conversation, sending only your actual last message each time
 
  - `RetryRegenerate`: (false)/true
     * true uses the AI's own retry mechanism when you regenerate on your frontend
