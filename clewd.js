@@ -882,21 +882,21 @@ const Proxy = Server((async (req, res) => {
             Config.Cookie = 'SET YOUR COOKIE HERE';
             writeSettings(Config, true);
         }
-    })();
 /********************************* */
-    for (let key in Config) {
-        if (process.env[`${key.toUpperCase()}`]) {
-            Config[key] = process.env[`${key.toUpperCase()}`];
-        }
-        if (key === 'Settings') {
-            for (let setting in Config.Settings) {
-                if (process.env[`${setting.toUpperCase()}`]) {
-                    Config.Settings[setting] = process.env[`${setting.toUpperCase()}`];
+        for (let key in Config) {
+            if (process.env[`${key.toUpperCase()}`]) {
+                Config[key] = process.env[`${key.toUpperCase()}`];
+            }
+            if (key === 'Settings') {
+                for (let setting in Config.Settings) {
+                    if (process.env[`${setting.toUpperCase()}`]) {
+                        Config.Settings[setting] = process.env[`${setting.toUpperCase()}`];
+                    }
                 }
             }
-        }
-    };
+        };
 /******************************** */
+    })();
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
