@@ -731,7 +731,6 @@ const Proxy = Server((async (req, res) => {
 /****************************************************************/                    
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
-/****************************************************************/
                         if (Config.Settings.PromptExperiment) {
                             attachments.push({
                                 extracted_content: (prompt),
@@ -741,7 +740,6 @@ const Proxy = Server((async (req, res) => {
                             });
                             prompt = '';
                         }
-/****************************************************************/
                         const res = await fetch(AI.end() + '/api/append_message', {
                             signal,
                             headers: {
@@ -839,7 +837,7 @@ const Proxy = Server((async (req, res) => {
                 param: null,
                 code: 404
             }
-        }, 404);
+        }, 200);
     }
 }));
 
@@ -882,13 +880,11 @@ const Proxy = Server((async (req, res) => {
         }
 /********************************* */
         for (let key in Config) {
-            // Convert both the key and the environment variable names to lowercase
             if (process.env[key]) {
                 Config[key] = process.env[key];
             }
             if (key === 'Settings') {
                 for (let setting in Config.Settings) {
-                    // Convert both the setting and the environment variable names to lowercase
                     if (process.env[setting]) {
                         Config.Settings[setting] = process.env[setting];
                     }
