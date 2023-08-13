@@ -1,10 +1,63 @@
 /*
-* https://gitgud.io/ahsk/clewd
-* https://github.com/h-a-s-k/clewd
+* https://rentry.org/teralomaniac_clewd
+* https://github.com/teralomaniac/clewd
 */
 'use strict';
 
-/***********************/
+const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http');
+
+const {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto');
+
+const {TransformStream} = require('node:stream/web');
+
+const {Readable, Writable} = require('node:stream');
+
+const FS = require('node:fs');
+
+const Path = require('node:path');
+const { config } = require('node:process');
+
+const Decoder = new TextDecoder;
+
+const Encoder = new TextEncoder;
+
+let NonDefaults;
+
+let Logger;
+
+const ConfigPath = Path.join(__dirname, './config.js');
+
+const LogPath = Path.join(__dirname, './log.txt');
+
+const Replacements = {
+    user: 'Human: ',
+    assistant: 'Assistant: ',
+    system: '',
+    example_user: 'H: ',
+    example_assistant: 'A: '
+};
+
+const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+
+const Conversation = {
+    char: null,
+    uuid: null,
+    depth: 0
+};
+
+const cookies = {};
+
+let curPrompt = {};
+
+let prevPrompt = {};
+
+let prevMessages = [];
+
+let prevImpersonated = false;
+
+let uuidOrg;
+
+/******************************************************* */
 const padJson = (json) => {
     const bytes = randomInt(10, 20);
     var placeholder = randomBytes(bytes).toString('hex'); // 定义占位符
@@ -78,61 +131,6 @@ const AddxmlPlot = (content) => {
 
     return content
 };
-/***********************/
-
-const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http');
-
-const {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto');
-
-const {TransformStream} = require('node:stream/web');
-
-const {Readable, Writable} = require('node:stream');
-
-const FS = require('node:fs');
-
-const Path = require('node:path');
-const { config } = require('node:process');
-
-const Decoder = new TextDecoder;
-
-const Encoder = new TextEncoder;
-
-let NonDefaults;
-
-let Logger;
-
-const ConfigPath = Path.join(__dirname, './config.js');
-
-const LogPath = Path.join(__dirname, './log.txt');
-
-const Replacements = {
-    user: 'Human: ',
-    assistant: 'Assistant: ',
-    system: '',
-    example_user: 'H: ',
-    example_assistant: 'A: '
-};
-
-const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
-
-const Conversation = {
-    char: null,
-    uuid: null,
-    depth: 0
-};
-
-const cookies = {};
-
-let curPrompt = {};
-
-let prevPrompt = {};
-
-let prevMessages = [];
-
-let prevImpersonated = false;
-
-let uuidOrg;
-
 /******************************************************* */
 /**
  * Edit settings in your config.js instead
@@ -149,10 +147,7 @@ let uuidOrg;
         AllSamples: false,
         ClearFlags: true,
         PreserveChats: true,
-        FullColon: true,
-        localtunnel: false,       
         NoSamples: false,
-        padtxt: true,
         PassParams: false,
         PreventImperson: false,
         PromptExperiment: true,
@@ -160,9 +155,12 @@ let uuidOrg;
         RenewAlways: true,
         StripAssistant: false,
         StripHuman: false,
-        VPNfree: false,
+        SystemExperiments: true,
+        FullColon: true,
+        padtxt: true,
         xmlPlot: true,
-        SystemExperiments: true
+        localtunnel: false,       
+        VPNfree: false
     },
     ExampleChatPrefix: '[Start a new Chat]\n\n',
     RealChatPrefix: '[Start a new Chat]\n\n',
