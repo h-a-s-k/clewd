@@ -884,13 +884,15 @@ const Proxy = Server((async (req, res) => {
         }
 /********************************* */
         for (let key in Config) {
-            if (process.env[`${key.toUpperCase()}`]) {
-                Config[key] = process.env[`${key.toUpperCase()}`];
+            // Convert both the key and the environment variable names to lowercase
+            if (process.env[key.toUpperCase()]) {
+                Config[key] = process.env[key.toUpperCase()];
             }
             if (key === 'Settings') {
                 for (let setting in Config.Settings) {
-                    if (process.env[`${setting.toUpperCase()}`]) {
-                        Config.Settings[setting] = process.env[`${setting.toUpperCase()}`];
+                    // Convert both the setting and the environment variable names to lowercase
+                    if (process.env[setting.toUpperCase()]) {
+                        Config.Settings[setting] = process.env[setting.toUpperCase()];
                     }
                 }
             }
