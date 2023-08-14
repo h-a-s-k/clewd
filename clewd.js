@@ -281,7 +281,7 @@ const messagesToPrompt = (messages, customPrompt) => {
         lastUser.empty = true;
         latestInteraction.push(lastUser);
     } 
-    let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
+    //let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
     let sampleChats = messagesClone.filter((message => message.name && message.name.startsWith('example_')));
     Config.Settings.AllSamples && !Config.Settings.NoSamples && chatLogs.forEach((message => {
         if (message !== lastUser && message !== lastAssistant) {
@@ -315,6 +315,14 @@ const messagesToPrompt = (messages, customPrompt) => {
         mainPromptCharacter = null;
         jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
     }
+/******************************* */
+    let chatLogs = messagesClone.filter(message => {
+        return !message.name && 
+               ['user', 'assistant', 'system'].includes(message.role) && 
+               message !== mainPromptCharacter && 
+               message !== jailbreakPrompt;
+    });
+/******************************* */    
     prompt = prompt.replace(/{{MAIN_AND_CHARACTER}}/gm, mainPromptCharacter?.content?.length > 0 ? '' + mainPromptCharacter?.content.trim() : '');
     prompt = prompt.replace(/{{CHAT_EXAMPLE}}/gm, sampleChats.length < 1 ? '' : `\n${Config.ExampleChatPrefix}${sampleChats?.map((message => `${Replacements[message.name || message.role]}${message.content.trim()}`)).join('\n\n')}`);
     prompt = prompt.replace(/{{CHAT_LOG}}/gm, chatLogs.length < 1 ? '' : `\n${Config.RealChatPrefix}${chatLogs?.map((message => `${message.empty ? '' : Replacements[message.role || message.name]}${message.content.trim()}`)).join('\n\n')}`);
