@@ -355,7 +355,7 @@ const setTitle = title => {
 
 const onListen = async () => {
 /***************************** */
-    if (Config.CookieArray != []) {
+    if (Config.CookieArray.length !== 0) {
         currentIndex = (currentIndex + 1) % Config.CookieArray.length;
         Config.Cookie = Config.CookieArray[currentIndex];
     }
