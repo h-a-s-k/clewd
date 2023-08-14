@@ -170,7 +170,7 @@ const AddxmlPlot = (content) => {
     PromptContinue: '{{JAILBREAK}}\n\n{{LATEST_USER}}'
 };
 
-const Main = 'clewd v3.3 mod by tera';
+const Main = 'clewd v3.3修改版 by tera';
 /******************************************************* */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
