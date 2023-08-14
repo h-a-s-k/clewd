@@ -955,7 +955,7 @@ const Proxy = Server((async (req, res) => {
 /***************************** */
         for (let key in Config) {
             if (process.env[key]) {
-                Config[key] = process.env[key];
+                Config[key] = process.env[key].split(',');
             }
             if (key === 'Settings') {
                 for (let setting in Config.Settings) {
