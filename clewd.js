@@ -58,8 +58,22 @@ let prevImpersonated = false;
 let uuidOrg;
 
 /******************************************************* */
+let currentIndex = 0;
+
+const events = require('events');
+const CookieChanger = new events.EventEmitter();
+
+CookieChanger.on('ChangeCookie', () => {
+    Proxy && Proxy.close();
+    console.log('Changing Cookie...');
+    Proxy.listen(Config.Port, Config.Ip, onListen);
+    Proxy.on('error', (err => {
+        console.error('Proxy error\n%o', err);
+    }));
+});
+
 const padJson = (json) => {
-    const bytes = randomInt(10, 20);
+    const bytes = randomInt(5, 15);
     var placeholder = randomBytes(bytes).toString('hex'); // 定义占位符
     
     var sizeInBytes = new Blob([json]).size; // 计算json数据的字节大小
@@ -339,7 +353,13 @@ const setTitle = title => {
     process.title !== title && (process.title = title);
 };
 
-const onListen = async () => {    
+const onListen = async () => {
+/***************************** */
+    if (Config.CookieArray != []) {
+        currentIndex = (currentIndex + 1) % Config.CookieArray.length;
+        Config.Cookie = Config.CookieArray[currentIndex];
+    }
+/***************************** */
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
@@ -821,6 +841,15 @@ const Proxy = Server((async (req, res) => {
                         throw Error(err.message);
                     }
                     if (200 !== fetchAPI.status) {
+/************************************** */
+                        const fetchAPIStreamClone = fetchAPI.clone();
+                        const json = await fetchAPIStreamClone.json();
+                        if (json.error) {
+                            if (json.error.message.includes('read-only mode') || json.error.message.includes('Exceeded completions limit')) {
+                                CookieChanger.emit('ChangeCookie');
+                            }
+                        }
+/************************************** */                        
                         return fetchAPI.body.pipeTo(response);
                     }
                     'R' !== type || prompt || (prompt = '...regen...');
@@ -881,23 +910,6 @@ const Proxy = Server((async (req, res) => {
     }
 }));
 
-/***************************** */
-async function runWithCookie(Config, index) {
-    if (Config.CookieArray[index]){Config.Cookie = Config.CookieArray[index]};
-
-    Proxy && Proxy.close(); 
-    Proxy.listen(Config.Port, Config.Ip, onListen);
-    Proxy.on('error', async (err) => {
-        console.error('Proxy error\n%o', err);
-        if (err.message.includes('read-only mode') || err.message.includes('Exceeded completions limit')) {
-            // 如果错误信息中包含特定的字符串，更换 Cookie 并重新运行代码
-            index = (index + 1) % Config.CookieArray.length;
-            await runWithCookie(Config, index);
-        }
-    });
-}
-/***************************** */
-
 !async function() {
     await (async () => {
         if (FS.existsSync(ConfigPath)) {
@@ -947,15 +959,14 @@ async function runWithCookie(Config, index) {
                     }
                 }
             }
-        };
+        }
 /***************************** */
     })();
-    const randomIndex = Math.floor(Math.random() * Config.CookieArray.length);
-    await runWithCookie(Config, randomIndex);
-    /*Proxy.listen(Config.Port, Config.Ip, onListen);
+    currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
+    Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
-    }));*/
+    }));
 }();
 
 process.on('SIGINT', (async () => {
