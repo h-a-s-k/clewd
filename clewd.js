@@ -138,6 +138,7 @@ const AddxmlPlot = (content) => {
  * @preserve
  */ let Config = {
     Cookie: '',
+    CookieArray: [],
     Ip: process.env.PORT ? '0.0.0.0' : '127.0.0.1',
     Port: process.env.PORT || 8444,
     BufferSize: 1,
@@ -879,6 +880,23 @@ const Proxy = Server((async (req, res) => {
     }
 }));
 
+/***************************** */
+async function runWithCookie(Config, index) {
+    if (Config.CookieArray[index]){Config.Cookie = Config.CookieArray[index]};
+
+    Proxy && Proxy.close(); 
+    Proxy.listen(Config.Port, Config.Ip, onListen);
+    Proxy.on('error', async (err) => {
+        console.error('Proxy error\n%o', err);
+        if (err.message.includes('read-only mode') || err.message.includes('Exceeded completions limit')) {
+            // 如果错误信息中包含特定的字符串，更换 Cookie 并重新运行代码
+            index = (index + 1) % Config.CookieArray.length;
+            await runWithCookie(Config, index);
+        }
+    });
+}
+/***************************** */
+
 !async function() {
     await (async () => {
         if (FS.existsSync(ConfigPath)) {
@@ -916,7 +934,7 @@ const Proxy = Server((async (req, res) => {
             Config.Cookie = 'SET YOUR COOKIE HERE';
             writeSettings(Config, true);
         }
-/********************************* */
+/***************************** */
         for (let key in Config) {
             if (process.env[key]) {
                 Config[key] = process.env[key];
@@ -929,12 +947,14 @@ const Proxy = Server((async (req, res) => {
                 }
             }
         };
-/******************************** */
+/***************************** */
     })();
-    Proxy.listen(Config.Port, Config.Ip, onListen);
+    const randomIndex = Math.floor(Math.random() * Config.CookieArray.length);
+    await runWithCookie(Config, randomIndex);
+    /*Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
-    }));
+    }));*/ 
 }();
 
 process.on('SIGINT', (async () => {
