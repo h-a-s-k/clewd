@@ -65,7 +65,7 @@ const CookieChanger = new events.EventEmitter();
 
 CookieChanger.on('ChangeCookie', () => {
     Proxy && Proxy.close();
-    console.log('Changing Cookie...');
+    console.log('\nChanging Cookie...\n');
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
@@ -845,7 +845,12 @@ const Proxy = Server((async (req, res) => {
                         const fetchAPIStreamClone = fetchAPI.clone();
                         const json = await fetchAPIStreamClone.json();
                         if (json.error) {
-                            if (json.error.message.includes('read-only mode') || json.error.message.includes('Exceeded completions limit')) {
+                            if (json.error.message.includes('read-only mode')) {
+                                Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
+                                writeSettings(Config);
+                                CookieChanger.emit('ChangeCookie');
+                            }
+                            else if (json.error.message.includes('Exceeded completions limit')) {
                                 CookieChanger.emit('ChangeCookie');
                             }
                         }
