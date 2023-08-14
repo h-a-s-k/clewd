@@ -954,18 +954,12 @@ const Proxy = Server((async (req, res) => {
         }
 /***************************** */
         for (let key in Config) {
-            if (process.env[key] && (key === 'CookieArray')) {
-                Config.CookieArray = process.env.CookieArray.split(',');
-            }
-            else if (process.env[key]){
-                Config[key] = process.env[key];
-            }
             if (key === 'Settings') {
                 for (let setting in Config.Settings) {
-                    if (process.env[setting]) {
-                        Config.Settings[setting] = process.env[setting];
-                    }
+                    Config.Settings[setting] = process.env[setting] ?? Config.Settings[setting];
                 }
+            } else {
+                Config[key] = key === 'CookieArray' ? (process.env[key]?.split(',') ?? Config[key]) : (process.env[key] ?? Config[key]);
             }
         }
 /***************************** */
