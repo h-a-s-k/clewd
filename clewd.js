@@ -170,7 +170,8 @@ const AddxmlPlot = (content) => {
     PromptContinue: '{{JAILBREAK}}\n\n{{LATEST_USER}}'
 };
 
-const Main = 'clewd v3.3修改版';
+const Main = 'clewd v3.3 mod by tera';
+/******************************************************* */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -954,7 +955,7 @@ async function runWithCookie(Config, index) {
     /*Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
-    }));*/ 
+    }));*/
 }();
 
 process.on('SIGINT', (async () => {
