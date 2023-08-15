@@ -73,8 +73,13 @@ CookieChanger.on('ChangeCookie', () => {
 });
 
 const padJson = (json) => {
-    const bytes = randomInt(5, 15);
-    var placeholder = randomBytes(bytes).toString('hex'); // 定义占位符
+    if (Config.padtxt_placeholder?.length > 0){
+        var placeholder = Config.padtxt_placeholder;
+    }
+    else {
+        const bytes = randomInt(5, 15);
+        var placeholder = randomBytes(bytes).toString('hex');
+    }
     
     var sizeInBytes = new Blob([json]).size; // 计算json数据的字节大小
 
@@ -132,7 +137,7 @@ const AddxmlPlot = (content) => {
     let illustrationMatch = content.match(/\n##.*?\n<illustration>[\s\S]*?<\/illustration>\n/);
 
     if (illustrationMatch && deleteMatch) {
-        content = content.replace(illustrationMatch[0], ""); // 移除<sex>部分
+        content = content.replace(illustrationMatch[0], ""); // 移除<illustration>部分
         content = content.replace(deleteMatch[0], illustrationMatch[0] + deleteMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
@@ -158,6 +163,7 @@ const AddxmlPlot = (content) => {
     BufferSize: 1,
     SystemInterval: 3,
     LogMessages: false,
+    padtxt_placeholder: '',
     Settings: {
         AllSamples: false,
         ClearFlags: true,
@@ -355,7 +361,7 @@ const setTitle = title => {
 
 const onListen = async () => {
 /***************************** */
-    if (Config.CookieArray.length !== 0) {
+    if (Config.CookieArray.length > 0) {
         currentIndex = (currentIndex + 1) % Config.CookieArray.length;
         Config.Cookie = Config.CookieArray[currentIndex];
     }
