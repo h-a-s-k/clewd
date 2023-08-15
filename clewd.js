@@ -162,21 +162,21 @@ const AddxmlPlot = (content) => {
     Port: process.env.PORT || 8444,
     BufferSize: 1,
     SystemInterval: 3,
-    LogMessages: false,
     padtxt_placeholder: '',
     Settings: {
-        AllSamples: false,
-        ClearFlags: true,
-        PreserveChats: true,
-        NoSamples: false,
-        PassParams: false,
         PreventImperson: false,
         PromptExperiment: true,
         RetryRegenerate: false,
         RenewAlways: true,
+        SystemExperiments: true,
+        AllSamples: false,
+        NoSamples: false,
         StripAssistant: false,
         StripHuman: false,
-        SystemExperiments: true,
+        PassParams: false,
+        ClearFlags: true,
+        PreserveChats: true,
+        LogMessages: true,
         FullColon: true,
         padtxt: true,
         xmlPlot: true,
@@ -185,12 +185,11 @@ const AddxmlPlot = (content) => {
     },
     ExampleChatPrefix: '[Start a new Chat]\n\n',
     RealChatPrefix: '[Start a new Chat]\n\n',
-    PromptMain: '{{MAIN_AND_CHARACTER}}\n\n{{CHAT_EXAMPLE}}\n\n{{CHAT_LOG}}\n\n{{JAILBREAK}}',
-    PromptReminder: '{{MAIN_AND_CHARACTER}}\n\n{{JAILBREAK}}\n\n{{LATEST_USER}}',
-    PromptContinue: '{{JAILBREAK}}\n\n{{LATEST_USER}}'
+    PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
+    ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
 
-const Main = 'clewd v3.3修改版 by tera';
+const Main = 'clewd v3.4修改版 by tera';
 /******************************************************* */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
@@ -238,8 +237,6 @@ const bytesToSize = (bytes = 0) => {
     return 0 === c ? `${bytes} ${b[c]}` : `${(bytes / 1024 ** c).toFixed(1)} ${b[c]}`;
 };
 
-const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
-
 const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
 
 const updateCookies = cookieInfo => {
@@ -277,82 +274,6 @@ const deleteChat = async uuid => {
         method: 'DELETE'
     });
     updateCookies(res);
-};
-
-const messagesToPrompt = (messages, customPrompt) => {
-    let messagesClone = JSON.parse(JSON.stringify(messages));
-    let prompt = [ ...customPrompt || Config.PromptMain ].join('').trim();
-    let lastInterGlobalIdx = -1;
-    const interactionDividers = messagesClone.filter((message => 'system' === message.role && '[Start a new chat]' === message.content));
-    interactionDividers.forEach(((divider, idx) => {
-        if (idx !== interactionDividers.length - 1) {
-            //divider.content = '' + Config.ExampleChatPrefix;
-        } else {
-            //divider.content = '' + Config.RealChatPrefix;
-            lastInterGlobalIdx = messagesClone.findIndex((message => message === divider));
-        }
-    }));
-    const latestInteraction = [];
-    const lastAssistant = messagesClone.findLast((message => 'assistant' === message.role));
-    if (lastAssistant && Config.Settings.StripAssistant) {
-        lastAssistant.empty = true;
-        latestInteraction.push(lastAssistant);
-    }
-    const lastUser = messagesClone.findLast((message => 'user' === message.role));
-    if (lastUser && Config.Settings.StripHuman) {
-        lastUser.empty = true;
-        latestInteraction.push(lastUser);
-    } 
-    let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
-    let sampleChats = messagesClone.filter((message => message.name && message.name.startsWith('example_')));
-    Config.Settings.AllSamples && !Config.Settings.NoSamples && chatLogs.forEach((message => {
-        if (message !== lastUser && message !== lastAssistant) {
-            if ('user' === message.role) {
-                message.name = 'example_user';
-                message.role = 'system';
-            } else {
-                if ('assistant' !== message.role) {
-                    throw Error('Invalid role ' + message.role);
-                }
-                message.name = 'example_assistant';
-                message.role = 'system';
-            }
-        }
-    }));
-    Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleChats.forEach((message => {
-        if ('example_user' === message.name) {
-            message.role = 'user';
-        } else {
-            if ('example_assistant' !== message.name) {
-                throw Error('Invalid role ' + message.name);
-            }
-            message.role = 'assistant';
-        }
-        delete message.name;
-    }));
-    const remainingSystem = messagesClone.filter((message => 'system' === message.role && !sampleChats.includes(message) && !interactionDividers.includes(message)));
-    let mainPromptCharacter = remainingSystem?.[0];
-    let jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
-    if (jailbreakPrompt === mainPromptCharacter) {
-        mainPromptCharacter = null;
-        jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
-    }
-/******************************* */
-    chatLogs = messagesClone.filter(message => 
-        !message.name && 
-        ['user', 'assistant', 'system'].includes(message.role) && 
-        message !== mainPromptCharacter && 
-        message !== jailbreakPrompt &&
-        message.content !== '[Start a new chat]'
-    );
-/******************************* */    
-    prompt = prompt.replace(/{{MAIN_AND_CHARACTER}}/gm, mainPromptCharacter?.content?.length > 0 ? '' + mainPromptCharacter?.content.trim() : '');
-    prompt = prompt.replace(/{{CHAT_EXAMPLE}}/gm, sampleChats.length < 1 ? '' : `\n${Config.ExampleChatPrefix}${sampleChats?.map((message => `${Replacements[message.name || message.role]}${message.content.trim()}`)).join('\n\n')}`);
-    prompt = prompt.replace(/{{CHAT_LOG}}/gm, chatLogs.length < 1 ? '' : `\n${Config.RealChatPrefix}${chatLogs?.map((message => `${message.empty ? '' : Replacements[message.role || message.name]}${message.content.trim()}`)).join('\n\n')}`);
-    prompt = prompt.replace(/{{JAILBREAK}}/gm, jailbreakPrompt?.content?.length > 0 ? '' + jailbreakPrompt?.content.trim() : '');
-    prompt = prompt.replace(/{{LATEST_USER}}/gm, lastUser ? `${lastUser.empty ? '' : Replacements[lastUser.role]}${lastUser.content.trim()}` : '');
-    prompt = prompt.replace(/{{LATEST_ASSISTANT}}/gm, lastAssistant ? `${lastAssistant.empty ? '' : Replacements[lastAssistant.role]}${lastAssistant.content.trim()}` : '');
-    return genericFixes(prompt).trim();
 };
 
 const setTitle = title => {
@@ -394,6 +315,7 @@ const onListen = async () => {
     setTitle('ok');
     updateCookies(Config.Cookie);
     updateCookies(accRes);
+    await checkResErr(accRes);
     console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => `[1m${setting}:[0m ${NonDefaults.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
 /*******************************/    
     if (Config.Settings.localtunnel) {
@@ -453,6 +375,26 @@ const onListen = async () => {
     conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
 };
 
+const checkResErr = async res => {
+    if (res.status < 200 || res.status >= 300) {
+        let err = Error('Unexpected response code: ' + res.status);
+        err.planned = true;
+        try {
+            const json = await res.json();
+            const {error: errAPI} = json;
+            if (errAPI) {
+                errAPI.message && (err.message = errAPI.message);
+                errAPI.type && (err.type = errAPI.type);
+                if (429 === res.status && errAPI.resets_at) {
+                    const hours = ((new Date(1e3 * errAPI.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
+                    err.message += `, expires in ${hours} hours`;
+                }
+            }
+        } catch (err) {}
+        throw Error(err);
+    }
+};
+
 class ClewdStream extends TransformStream {
     constructor(minSize = 8, modelName = AI.modelA(), streaming, abortController) {
         super({
@@ -474,8 +416,6 @@ class ClewdStream extends TransformStream {
     #abortController=void 0;
     #modelName=void 0;
     #compAll=[];
-    #compValid=[];
-    #compInvalid=[];
     #recvLength=0;
     #stopLoc=void 0;
     #stopReason=void 0;
@@ -484,17 +424,8 @@ class ClewdStream extends TransformStream {
     get size() {
         return this.#recvLength;
     }
-    get valid() {
-        return this.#compValid.length;
-    }
-    get invalid() {
-        return this.#compInvalid.length;
-    }
     get total() {
-        return this.valid + this.invalid;
-    }
-    get broken() {
-        return (this.invalid / this.total * 100).toFixed(2) + '%';
+        return this.#compAll.length;
     }
     get censored() {
         return this.#hardCensor;
@@ -504,7 +435,7 @@ class ClewdStream extends TransformStream {
     }
     empty() {
         this.#compOK = '';
-        this.#compAll = this.#compValid = this.#compInvalid = [];
+        this.#compAll = [];
         this.#recvLength = 0;
     }
     #cutBuffer() {
@@ -575,39 +506,20 @@ class ClewdStream extends TransformStream {
     }
     #handle(chunk, controller) {
         this.#recvLength += chunk.byteLength || 0;
-        let parsed = {};
+        let completion = '';
         let delayChunk;
-        chunk = Decoder.decode(chunk);
-        chunk = cleanJSON(chunk);
+        chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
         try {
-            const clean = cleanJSON(chunk);
-            parsed = JSON.parse(clean);
-            this.#stopLoc = parsed.stop;
-            this.#stopReason = parsed.stop_reason;
-            this.#compValid.push(parsed.completion);
-            parsed.error;
-        } catch (err) {
-            const {stopMatch, stopReasonMatch, completionMatch, errorMatch} = (chunk => ({
-                completionMatch: (chunk = 'string' == typeof chunk ? chunk : Decoder.decode(chunk)).match(/(?<="completion"\s?:\s?")(.*?)(?=\\?",?)/gi),
-                stopMatch: chunk.match(/(?<="stop"\s?:\s?")(.*?)(?=\\?",?)/gi),
-                stopReasonMatch: chunk.match(/(?<="stop_reason"\s?:\s?")(.*?)(?=\\?",?)/gi),
-                errorMatch: chunk.match(/(?<="message"\s?:\s?")(.*?)(?=\\?",?)/gi)
-            }))(chunk);
-            stopMatch && (parsed.stop = stopMatch.join(''));
-            stopReasonMatch && (parsed.stop_reason = stopReasonMatch.join(''));
-            if (completionMatch) {
-                parsed.completion = completionMatch.join('');
-                this.#compInvalid.push(parsed.completion);
-            }
-        } finally {
-            this.#stopReason = parsed.stop_reason;
-            this.#stopLoc = parsed.stop;
-        }
-        if (parsed.completion) {
-            parsed.completion = genericFixes(parsed.completion);
-            this.#compOK += parsed.completion;
-            this.#compAll.push(parsed.completion);
-            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
+            const chunks = chunk.split('\n').map((chunk => JSON.parse(chunk)));
+            chunks.find((chunk => chunk.error));
+            completion = genericFixes(chunks.map((chunk => chunk.completion)).join(''));
+            this.#stopLoc || (this.#stopLoc = chunks.find((chunk => chunk.stop_loc))?.stop);
+            this.#stopReason || (this.#stopReason = chunks.find((chunk => chunk.stop_reason))?.stop_reason);
+        } catch (err) {}
+        if (completion) {
+            this.#compOK += completion;
+            this.#compAll.push(completion);
+            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || completion.startsWith(char)));
             if (this.#streaming) {
                 delayChunk && this.#impersonationCheck(this.#compOK, controller);
                 for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
@@ -622,7 +534,7 @@ class ClewdStream extends TransformStream {
 }
 
 const writeSettings = async (config, firstRun = false) => {
-    FS.writeFileSync(ConfigPath, `/*\n* https://rentry.org/teralomaniac_clewd\n* https://github.com/teralomaniac/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval, PromptMain, PromptReminder, PromptContinue\n * when \`RenewAlways\` is set to true (default), \`Main\` is always the one being used\n\n * when \`RenewAlways\` is set to false, \`Main\` is sent on conversation start\n * then only \`Continue\` is sent as long as no impersonation happened\n * \`Simple\` and \`Reminder\` alternate every \`SystemInterval\`\n * \n * {{MAIN_AND_CHARACTER}}, {{CHAT_EXAMPLE}}, {{CHAT_LOG}}, {{JAILBREAK}}, {{LATEST_ASSISTANT}}, {{LATEST_USER}}\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#anchor-30\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
+    FS.writeFileSync(ConfigPath, `/*\n* https://rentry.org/teralomaniac_clewd\n* https://github.com/teralomaniac/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval\n * How many messages until \`SystemExperiments alternates\`\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * and\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
     if (firstRun) {
         console.warn('[33mConfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
         process.exit(0);
@@ -668,8 +580,7 @@ const Proxy = Server((async (req, res) => {
                 let shouldRenew = true;
                 let retryRegen = false;
                 try {
-                    const bufferComplete = Buffer.concat(buffer).toString();
-                    const body = JSON.parse(bufferComplete);
+                    const body = JSON.parse(Buffer.concat(buffer).toString());
                     const temperature = Math.max(.1, Math.min(1, body.temperature));
                     let {messages} = body;
                     if (messages?.length < 1) {
@@ -689,14 +600,14 @@ const Proxy = Server((async (req, res) => {
                     }
                     res.setHeader('Access-Control-Allow-Origin', '*');
                     body.stream && res.setHeader('Content-Type', 'text/event-stream');
-                    if (!body.stream && messages?.[0]?.content.startsWith('From the list below, choose a word that best represents a character\'s outfit description, action, or emotion in their dialogue.')) {
-                        return res.end(JSON.stringify({
+                    if (!body.stream && messages?.[0]?.content?.startsWith('From the list below, choose a word that best represents a character\'s outfit description, action, or emotion in their dialogue')) {
+                        return res.json({
                             choices: [ {
                                 message: {
                                     content: 'neutral'
                                 }
                             } ]
-                        }));
+                        });
                     }
                     if (Config.Settings.AllSamples && Config.Settings.NoSamples) {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
@@ -721,7 +632,6 @@ const Proxy = Server((async (req, res) => {
                             lastAssistant: prevMessages.findLast((message => 'assistant' === message.role))
                         }
                     };
-                    let prompt;
                     samePrompt = JSON.stringify(messages.filter((message => 'system' !== message.role)).sort()) === JSON.stringify(prevMessages.filter((message => 'system' !== message.role)).sort());
                     const sameCharDiffChat = !samePrompt && curPrompt.firstSystem?.content === prevPrompt.firstSystem?.content && curPrompt.firstUser.content !== prevPrompt.firstUser?.content;
                     shouldRenew = Config.Settings.RenewAlways || !Conversation.uuid || prevImpersonated || !Config.Settings.RenewAlways && samePrompt || sameCharDiffChat;
@@ -729,7 +639,6 @@ const Proxy = Server((async (req, res) => {
                     samePrompt || (prevMessages = JSON.parse(JSON.stringify(messages)));
                     let type = '';
                     if (retryRegen) {
-                        console.log(model + ' [[2mR[0m]');
                         type = 'R';
                         fetchAPI = await (async (signal, body, model) => {
                             const res = await fetch(AI.end() + '/api/retry_message', {
@@ -751,6 +660,7 @@ const Proxy = Server((async (req, res) => {
                                 })
                             });
                             updateCookies(res);
+                            await checkResErr(res);
                             return res;
                         })(signal, 0, model);
                     } else if (shouldRenew) {
@@ -771,38 +681,124 @@ const Proxy = Server((async (req, res) => {
                                 })
                             });
                             updateCookies(res);
+                            await checkResErr(res);
                             return res;
                         })(signal);
-                        console.log(model + ' [[2mr[0m]');
                         type = 'r';
-                        prompt = messagesToPrompt(messages);
                     } else if (samePrompt) {} else {
                         const systemExperiment = !Config.Settings.RenewAlways && Config.Settings.SystemExperiments;
-                        const fullSystem = !systemExperiment || systemExperiment && Conversation.depth >= Config.SystemInterval;
-                        const systemMessages = [ ...new Set(JSON.parse(JSON.stringify(messages)).filter((message => !message.name && 'system' === message.role)).filter((message => false === [ '[Start a new chat]', Replacements.new_chat ].includes(message.content)))) ];
-                        let trimmedMessages;
-                        let chosenPrompt;
-                        if (fullSystem) {
-                            console.log(`${model} [[2mc-r[0m] ${systemMessages.map((message => `"${message.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`)).join(' [33m/[0m ')}`);
-                            trimmedMessages = [ ...systemMessages, curPrompt.lastAssistant, curPrompt.lastUser ];
-                            Conversation.depth = 0;
-                            chosenPrompt = Config.PromptReminder;
+                        if (!systemExperiment || systemExperiment && Conversation.depth >= Config.SystemInterval) {
                             type = 'c-r';
+                            Conversation.depth = 0;
                         } else {
-                            const jailbreak = systemMessages[systemMessages.length - 1];
-                            console.log(`${model} [[2mc-c[0m] "${jailbreak.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`);
-                            trimmedMessages = [ ...systemMessages, curPrompt.lastUser ];
-                            chosenPrompt = Config.PromptContinue;
                             type = 'c-c';
+                            Conversation.depth++;
                         }
-                        prompt = messagesToPrompt(trimmedMessages, chosenPrompt);
-                        Conversation.depth++;
                     }
-/****************************************************************/                    
+                    let {prompt, systems} = ((messages, type) => {
+                        const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i;
+                        const rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i;
+                        const messagesClone = JSON.parse(JSON.stringify(messages));
+                        const realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role)));
+                        const sampleLogs = messagesClone.filter((message => [ 'example_user', 'example_assistant' ].includes(message.name)));
+                        const mergedLogs = [ ...sampleLogs, ...realLogs ];
+                        mergedLogs.forEach(((message, idx) => {
+                            const next = realLogs[idx + 1];
+                            if (next) {
+                                if (message.name && next.name && message.name === next.name) {
+                                    message.content += '\n' + next.content;
+                                    next.merged = true;
+                                } else if (next.role === message.role) {
+                                    message.content += '\n' + next.content;
+                                    next.merged = true;
+                                }
+                            }
+                        }));
+                        const lastAssistant = realLogs.findLast((message => !message.merged && 'assistant' === message.role));
+                        lastAssistant && Config.Settings.StripAssistant && (lastAssistant.strip = true);
+                        const lastUser = realLogs.findLast((message => !message.merged && 'user' === message.role));
+                        lastUser && Config.Settings.StripHuman && (lastUser.strip = true);
+                        const systemMessages = messagesClone.filter((message => 'system' === message.role && !message.name));
+                        systemMessages.forEach(((message, idx) => {
+                            const scenario = message.content.match(rgxScenario)?.[1];
+                            const personality = message.content.match(rgxPerson);
+                            if (scenario) {
+                                message.content = Config.ScenarioFormat.replace(/{{SCENARIO}}/g, scenario);
+                                message.scenario = true;
+                            }
+                            if (3 === personality?.length) {
+                                message.content = Config.PersonalityFormat.replace(/{{CHAR}}/gm, personality[1]).replace(/{{PERSONALITY}}/gm, personality[2]);
+                                message.personality = true;
+                            }
+                            message.main = 0 === idx;
+                            message.jailbreak = idx === systemMessages.length - 1;
+                        }));
+                        Config.Settings.AllSamples && !Config.Settings.NoSamples && realLogs.forEach((message => {
+                            if ('user' === message.role) {
+                                message.name = 'example_user';
+                                message.role = 'system';
+                            } else {
+                                if ('assistant' !== message.role) {
+                                    throw Error('Invalid role ' + message.role);
+                                }
+                                message.name = 'example_assistant';
+                                message.role = 'system';
+                            }
+                        }));
+                        Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleLogs.forEach((message => {
+                            if ('example_user' === message.name) {
+                                message.role = 'user';
+                            } else {
+                                if ('example_assistant' !== message.name) {
+                                    throw Error('Invalid role ' + message.name);
+                                }
+                                message.role = 'assistant';
+                            }
+                            delete message.name;
+                        }));
+                        let systems = [];
+                        if (![ 'r', 'R' ].includes(type)) {
+                            lastUser.strip = true;
+                            systemMessages.forEach((message => message.discard = message.discard || 'c-c' === type ? !message.jailbreak : !message.jailbreak && !message.main));
+                            systems = systemMessages.filter((message => !message.discard)).map((message => `"${message.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`));
+                            messagesClone.forEach((message => message.discard = message.discard || mergedLogs.includes(message) && ![ lastUser ].includes(message)));
+                        }
+                        const interactionDividers = systemMessages.filter((message => '[start a new chat]' === message.content.toLowerCase()));
+                        interactionDividers.forEach(((divider, idx) => {
+                            let real = idx === interactionDividers.length - 1;
+                            let useReal = Config.Settings.NoSamples || real;
+                            let useExample = Config.Settings.AllSamples || !real;
+                            if (useReal) {
+                                divider.content = '' + Config.RealChatPrefix;
+                                Config.Settings.AllSamples && (divider.discard = true);
+                            }
+                            if (useExample) {
+                                divider.content = '' + Config.ExampleChatPrefix;
+                                Config.Settings.NoSamples && (divider.discard = true);
+                            }
+                        }));
+                        const prompt = messagesClone.map(((message, idx) => {
+                            if (message.merged || message.discard) {
+                                return '';
+                            }
+                            if (message.content.length < 1) {
+                                return message.content;
+                            }
+                            let spacing = '';
+                            idx > 0 && (spacing = systemMessages.includes(message) || message.name ? '\n' : '\n\n');
+                            return `${spacing}${message.strip ? '' : Replacements[message.name || message.role]}${message.content.trim()}`;
+                        }));
+                        return {
+                            prompt: genericFixes(prompt.join('')).trim(),
+                            systems
+                        };
+                    })(messages, type);
+                    console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
+/****************************************************************/
                     if (Config.Settings.xmlPlot) {prompt = AddxmlPlot(prompt)};
                     if (Config.Settings.FullColon) {prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：')};
                     if (Config.Settings.padtxt) {prompt = padJson(prompt)};
-/****************************************************************/                    
+/****************************************************************/
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiment) {
@@ -827,7 +823,7 @@ const Proxy = Server((async (req, res) => {
                                         temperature
                                     },
                                     prompt,
-                                    timezone: 'America/New_York',
+                                    timezone: 'Europe/London',
                                     model
                                 },
                                 organization_uuid: uuidOrg,
@@ -837,43 +833,10 @@ const Proxy = Server((async (req, res) => {
                             })
                         });
                         updateCookies(res);
+                        await checkResErr(res);
                         return res;
                     })(signal, 0, model, prompt, temperature));
                     const response = Writable.toWeb(res);
-                    if (429 === fetchAPI.status) {
-                        const err = {
-                            message: 'Rate limited',
-                            code: fetchAPI.status
-                        };
-                        try {
-                            const json = await fetchAPI.json();
-                            if (json.error) {
-                                err.message = json.error.message;
-                                if (json.error.resets_at) {
-                                    const hours = ((new Date(1e3 * json.error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
-                                    err.message += `, expires in ${hours} hours`;
-                                }
-                            }
-                        } catch (err) {}
-                        throw Error(err.message);
-                    }
-                    if (200 !== fetchAPI.status) {
-/************************************** */
-                        const fetchAPIStreamClone = fetchAPI.clone();
-                        const json = await fetchAPIStreamClone.json();
-                        if (json.error) {
-                            if (json.error.message.includes('read-only mode')) {
-                                Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
-                                writeSettings(Config);
-                                CookieChanger.emit('ChangeCookie');
-                            }
-                            else if (json.error.message.includes('Exceeded completions limit')) {
-                                CookieChanger.emit('ChangeCookie');
-                            }
-                        }
-/************************************** */                        
-                        return fetchAPI.body.pipeTo(response);
-                    }
                     'R' !== type || prompt || (prompt = '...regen...');
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
                     clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
@@ -883,7 +846,7 @@ const Proxy = Server((async (req, res) => {
                     if ('AbortError' === err.name) {
                         return res.end();
                     }
-                    console.error('[33mClewd:[0m\n%o', err);
+                    err.planned || console.error('[33mClewd:[0m\n%o', err);
                     res.json({
                         error: {
                             message: 'clewd: ' + (err.message || err.name || err.type),
@@ -897,7 +860,7 @@ const Proxy = Server((async (req, res) => {
                     if (clewdStream) {
                         clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                         prevImpersonated = clewdStream.impersonated;
-                        console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m ${clewdStream.broken} broken\n`);
+                        console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
                         setTitle('ok ' + bytesToSize(clewdStream.size));
                         clewdStream.empty();
                     }
@@ -960,7 +923,7 @@ const Proxy = Server((async (req, res) => {
             }));
             NonDefaults = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
             (missingConfigs.length > 0 || missingSettings.length > 0) && await writeSettings(userConfig);
-            userConfig.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
+            userConfig.Settings.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
             Config = {
                 ...Config,
                 ...userConfig

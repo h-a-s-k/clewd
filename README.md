@@ -34,30 +34,6 @@ nodejs>=20.4.*
 
 ### SettingName: (DEFAULT)/opt1/opt2...
 
- - `AllSamples`: (false)/true
-    * mutually exclusive with `NoSamples`
-    * true converts every message except the last two to "sample dialogues"
-    * you're "H" and the AI is "A"
-    * whatever the AI replies with is kept (only outgoing)
-    * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
-    - Human->H
-    - Assistant->A
-
- - `NoSamples`: (false)/true
-    * mutually exclusive with `AllSamples`
-    * true converts all "sample dialogues" to real dialogue
-    * you're "Human" and the AI is "Assistant"
-    * whatever the AI replies with is kept (only outgoing)
-    * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
-    - H->Human
-    - A->Assistant
-
- - `PassParams`: (false)/true
-    * true will send the temperature you set on your frontend
-    * only values under <=1
-    * this could get your account banned
-    * if clewd stops working, set to false
-
  - `PreventImperson`: (false)/true
     * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
     * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
@@ -66,21 +42,19 @@ nodejs>=20.4.*
     * true is an alternative way to send your prompt to the AI
     * experiment before setting to false
 
- - `ClearFlags`: (false)/true
-    * possibly snake-oil
-    * clears your warnings
-
- - `PreserveChats`: (false)/true
-    * true prevents the deletion of old chats at any point
-
- - `RenewAlways`: (true)/false
-    * true makes a new conversation context each time
-    * false *tries* to reutilize the same old conversation, sending only your actual last message each time
-
  - `RetryRegenerate`: (false)/true
     * true uses the AI's own retry mechanism when you regenerate on your frontend
     * instead of a new conversation
     * experiment with it
+
+ - `SystemExperiments`: (true)/false
+    * only has any effect when `RenewAlways` is false
+    * true alternates between Main+JB+User and JB+User
+    * false doesn't alternate
+
+ - `RenewAlways`: (true)/false
+    * true makes a new conversation context each time
+    * false *tries* to reutilize the same old conversation, sending only your actual last message each time, taking into consideration `SystemExperiments`
 
  - `StripAssistant`: (false)/true
     * true strips the "Assistant:" prefix from the last assistant message
@@ -88,10 +62,39 @@ nodejs>=20.4.*
  - `StripHuman`: (false)/true
     * true strips the "Human:" prefix from the last human message
 
- - `SystemExperiments`: (true)/false
-    * only has any effect when `RenewAlways` is false
-    * true alternates between Reminder and Continue prompts
-    * false only uses Reminder
+ - `AllSamples`: (false)/true
+    * mutually exclusive with `NoSamples`
+    * true converts all real dialogue to "sample dialogue"
+    * you're "H" and the AI is "A"
+    * whatever the AI replies with is kept (only outgoing)
+    * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
+    - Human->H
+    - Assistant->A
+
+ - `NoSamples`: (false)/true
+    * mutually exclusive with `AllSamples`
+    * true converts all "sample dialogue" to real dialogue
+    * you're "Human" and the AI is "Assistant"
+    * whatever the AI replies with is kept (only outgoing)
+    * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
+    - H->Human
+    - A->Assistant
+	
+ - `LogMessages`: (false)/true
+    * true logs prompt and reply to `log.txt`
+
+ - `ClearFlags`: (false)/true
+    * possibly snake-oil
+    * clears your warnings
+
+ - `PassParams`: (false)/true
+    * true will send the temperature you set on your frontend
+    * only values under <=1.0 >= 0.1
+    * this could get your account banned
+    * if clewd stops working, set to false
+
+ - `PreserveChats`: (false)/true
+    * true prevents the deletion of old chats at any point
 
 
 

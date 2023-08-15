@@ -12,6 +12,46 @@
 </a>
 </div>
 
+# 3.4
+> **Streaming changes**
+turns out I could've fixed the broken formatting long ago, should work great now
+
+> Prompt conversion and **SystemExperiments** reworked
+
+> **Prompts** (PromptMain, PromptReminder, PromptContinue) from 3.0 removed
+
+most frontends are implementing prompt managers so that hack is not needed
+
+> **PersonalityFormat** and **ScenarioFormat** added
+
+those are hardcoded on ST and will stay available until they're not
+
+scenarios and char description are extracted from their hardcoded strings and replaced by the format you set
+
+> **ExampleChatPrefix** and **RealChatPrefix**
+
+those are hardcoded on ST and will stay available until they're not
+
+- **ExampleChatPrefix** default changed
+
+- **RealChatPrefix** default is now empty
+
+> **AllSamples** changed
+
+no longer excludes the last two messages when transforming
+
+> **LogMessages** changed
+
+moved to Settings
+
+> **Minor changes**
+
+- Error handling changes
+
+- RenewAlways is now more stable when set to false. still, regenerate once if you swap characters
+
+- `[Start a new chat]` no longer excluded, now replaced by ExampleChatPrefix/RealChatPrefix
+
 # 3.3
 added \[DONE\] to end of streams
 
@@ -27,7 +67,7 @@ if set to true, prevents the deletion of chats at any point
 # 3.1
 > **Streaming changes**
 
-if the user did not enable streaming, we will **fake** a non-stream response for compatibility
+if the user did not enable streaming, clewd will **fake** a non-stream response for compatibility
 
 > **LogMessages** added (defaults false)
 
@@ -76,7 +116,7 @@ if set to false, check the `Prompts` section below
 
 > **NoSamples** added (defaults false)
 
-if set to true, replaces any H/A prefix from your frontend into Human/Assistant
+if set to true, replaces every previous message with H/A prefix from your frontend into Human/Assistant
 
 mutually exclusive with `AllSamples`
 
