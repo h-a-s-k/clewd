@@ -108,6 +108,7 @@ const AddxmlPlot = (content) => {
         return content;
     }
 
+    content = content.replace(/\[Start a new chat\]/gm, '\n[Start a new chat]');
     content = content.replace(/\n\nSystem:\s*/g, '\n\n');
 
     // 在第一个"[Start a new"前面加上"<example>"，在最后一个"[Start a new"前面加上"</example>"
