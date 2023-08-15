@@ -424,6 +424,7 @@ class ClewdStream extends TransformStream {
     #streaming=void 0;
     #minSize=void 0;
     #compOK='';
+    #compRaw='';
     #abortController=void 0;
     #modelName=void 0;
     #compAll=[];
@@ -445,11 +446,11 @@ class ClewdStream extends TransformStream {
         return this.#impersonated;
     }
     empty() {
-        this.#compOK = '';
+        this.#compOK = this.#compRaw = '';
         this.#compAll = [];
         this.#recvLength = 0;
     }
-    #cutBuffer() {
+    #collectBuf() {
         const valid = [ ...this.#compOK ];
         const selection = valid.splice(0, Math.min(this.#minSize, valid.length)).join('');
         this.#compOK = valid.join('');
@@ -515,31 +516,43 @@ class ClewdStream extends TransformStream {
             }
         }
     }
-    #handle(chunk, controller) {
-        this.#recvLength += chunk.byteLength || 0;
-        let completion = '';
+    #parseMatch(match, controller) {
+        let parsed;
         let delayChunk;
-        chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
         try {
-            const chunks = chunk.split('\n').map((chunk => JSON.parse(chunk)));
-            chunks.find((chunk => chunk.error));
-            completion = genericFixes(chunks.map((chunk => chunk.completion)).join(''));
-            this.#stopLoc || (this.#stopLoc = chunks.find((chunk => chunk.stop_loc))?.stop);
-            this.#stopReason || (this.#stopReason = chunks.find((chunk => chunk.stop_reason))?.stop_reason);
-        } catch (err) {}
-        if (completion) {
-            this.#compOK += completion;
-            this.#compAll.push(completion);
-            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || completion.startsWith(char)));
+            parsed = JSON.parse(match);
+            if (parsed.error) {
+                console.warn(`[31m${this.#modelName}: ${parsed.error}[0m`);
+                parsed.completion = `## ${Main}\n**${this.#modelName}**: ${parsed.error}`;
+            }
+            this.#compAll.push(parsed.completion);
+            if (parsed.completion) {
+                parsed.completion = genericFixes(parsed.completion);
+                this.#compOK += parsed.completion;
+                this.#compRaw = '';
+                this.#compAll.push(parsed.completion);
+                delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
+            }
+            !this.#stopLoc && parsed.stop && (this.#stopLoc = parsed.stop.replace(/\n/g, '\\n'));
+            !this.#stopReason && parsed.stop_reason && (this.#stopReason = parsed.stop_reason);
             if (this.#streaming) {
                 delayChunk && this.#impersonationCheck(this.#compOK, controller);
                 for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
-                    const selection = this.#cutBuffer();
+                    const selection = this.#collectBuf();
                     controller.enqueue(this.#build(selection));
                 }
             } else {
                 delayChunk && this.#impersonationCheck(this.#compAll.join(''), controller);
             }
+        } catch (err) {}
+    }
+    #handle(chunk, controller) {
+        this.#recvLength += chunk.byteLength || 0;
+        chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
+        this.#compRaw += chunk;
+        const matches = this.#compRaw.split(/(\n){1}/gm).filter((match => match.length > 0 && '\n' !== match));
+        for (const match of matches) {
+            this.#parseMatch(match, controller);
         }
     }
 }
