@@ -20,7 +20,9 @@ const Decoder = new TextDecoder;
 
 const Encoder = new TextEncoder;
 
-let NonDefaults;
+let ChangedSettings;
+
+let UnknownSettings;
 
 let Logger;
 
@@ -68,7 +70,7 @@ let uuidOrg;
     SystemInterval: 3,
     Settings: {
         PreventImperson: false,
-        PromptExperiment: true,
+        PromptExperiments: true,
         RetryRegenerate: false,
         RenewAlways: true,
         SystemExperiments: true,
@@ -200,7 +202,7 @@ const onListen = async () => {
     updateCookies(Config.Cookie);
     updateCookies(accRes);
     await checkResErr(accRes);
-    console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => `[1m${setting}:[0m ${NonDefaults.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
+    console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
         capabilities: accInfo.capabilities
@@ -657,7 +659,7 @@ const Proxy = Server((async (req, res) => {
                                 return message.content;
                             }
                             let spacing = '';
-                            idx > 0 && (spacing = systemMessages.includes(message) || message.name ? '\n' : '\n\n');
+                            idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
                             return `${spacing}${message.strip ? '' : Replacements[message.name || message.role]}${message.content.trim()}`;
                         }));
                         return {
@@ -668,7 +670,7 @@ const Proxy = Server((async (req, res) => {
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
-                        if (Config.Settings.PromptExperiment) {
+                        if (Config.Settings.PromptExperiments) {
                             attachments.push({
                                 extracted_content: prompt,
                                 file_name: fileName(),
@@ -771,11 +773,11 @@ const Proxy = Server((async (req, res) => {
             const parsedSettings = Object.keys(userConfig.Settings);
             const invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config)));
             const validSettings = Object.keys(Config.Settings);
-            const invalidSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
+            UnknownSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
             invalidConfigs.forEach((config => {
                 console.warn(`unknown config in config.js: [33m${config}[0m`);
             }));
-            invalidSettings.forEach((setting => {
+            UnknownSettings.forEach((setting => {
                 console.warn(`unknown setting in config.js: [33mSettings.${setting}[0m`);
             }));
             const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config)));
@@ -788,7 +790,7 @@ const Proxy = Server((async (req, res) => {
                 console.warn(`adding missing setting in config.js: [33mSettings.${setting}[0m`);
                 userConfig.Settings[setting] = Config.Settings[setting];
             }));
-            NonDefaults = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
+            ChangedSettings = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
             (missingConfigs.length > 0 || missingSettings.length > 0) && await writeSettings(userConfig);
             userConfig.Settings.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
             Config = {

@@ -228,7 +228,7 @@ should be more accurate now
 
 uses the AI's own retry mechanism when you regenerate on your frontend, if you change anything from your last prompt before regenerating it will default to old behavior
 
-> **PromptExperiment** added (defaults true)
+> **PromptExperiments** added (defaults true)
 
 an alternative way to send your prompt to the AI, through a file. set to false if it's bad
 both enabled: https://files.catbox.moe/io1q53.webm
