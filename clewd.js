@@ -21,7 +21,9 @@ const Decoder = new TextDecoder;
 
 const Encoder = new TextEncoder;
 
-let NonDefaults;
+let ChangedSettings;
+
+let UnknownSettings;
 
 let Logger;
 
@@ -165,7 +167,7 @@ const AddxmlPlot = (content) => {
     padtxt_placeholder: '',
     Settings: {
         PreventImperson: false,
-        PromptExperiment: true,
+        PromptExperiments: true,
         RetryRegenerate: false,
         RenewAlways: true,
         SystemExperiments: true,
@@ -183,8 +185,6 @@ const AddxmlPlot = (content) => {
         localtunnel: false,       
         VPNfree: false
     },
-    ExampleChatPrefix: '[Start a new Chat]\n\n',
-    RealChatPrefix: '[Start a new Chat]\n\n',
     PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
     ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
@@ -316,7 +316,7 @@ const onListen = async () => {
     updateCookies(Config.Cookie);
     updateCookies(accRes);
     await checkResErr(accRes);
-    console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => `[1m${setting}:[0m ${NonDefaults.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
+    console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
 /*******************************/    
     if (Config.Settings.localtunnel) {
         const localtunnel = require('localtunnel');
@@ -763,20 +763,6 @@ const Proxy = Server((async (req, res) => {
                             systems = systemMessages.filter((message => !message.discard)).map((message => `"${message.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`));
                             messagesClone.forEach((message => message.discard = message.discard || mergedLogs.includes(message) && ![ lastUser ].includes(message)));
                         }
-                        const interactionDividers = systemMessages.filter((message => '[start a new chat]' === message.content.toLowerCase()));
-                        interactionDividers.forEach(((divider, idx) => {
-                            let real = idx === interactionDividers.length - 1;
-                            let useReal = Config.Settings.NoSamples || real;
-                            let useExample = Config.Settings.AllSamples || !real;
-                            if (useReal) {
-                                divider.content = '' + Config.RealChatPrefix;
-                                Config.Settings.AllSamples && (divider.discard = true);
-                            }
-                            if (useExample) {
-                                divider.content = '' + Config.ExampleChatPrefix;
-                                Config.Settings.NoSamples && (divider.discard = true);
-                            }
-                        }));
                         const prompt = messagesClone.map(((message, idx) => {
                             if (message.merged || message.discard) {
                                 return '';
@@ -785,7 +771,7 @@ const Proxy = Server((async (req, res) => {
                                 return message.content;
                             }
                             let spacing = '';
-                            idx > 0 && (spacing = systemMessages.includes(message) || message.name ? '\n' : '\n\n');
+                            idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
                             return `${spacing}${message.strip ? '' : Replacements[message.name || message.role]}${message.content.trim()}`;
                         }));
                         return {
@@ -801,7 +787,7 @@ const Proxy = Server((async (req, res) => {
 /****************************************************************/
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
-                        if (Config.Settings.PromptExperiment) {
+                        if (Config.Settings.PromptExperiments) {
                             attachments.push({
                                 extracted_content: (prompt),
                                 file_name: 'paste.txt',  //fileName(),
@@ -904,11 +890,11 @@ const Proxy = Server((async (req, res) => {
             const parsedSettings = Object.keys(userConfig.Settings);
             const invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config)));
             const validSettings = Object.keys(Config.Settings);
-            const invalidSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
+            UnknownSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
             invalidConfigs.forEach((config => {
                 console.warn(`unknown config in config.js: [33m${config}[0m`);
             }));
-            invalidSettings.forEach((setting => {
+            UnknownSettings.forEach((setting => {
                 console.warn(`unknown setting in config.js: [33mSettings.${setting}[0m`);
             }));
             const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config)));
@@ -921,7 +907,7 @@ const Proxy = Server((async (req, res) => {
                 console.warn(`adding missing setting in config.js: [33mSettings.${setting}[0m`);
                 userConfig.Settings[setting] = Config.Settings[setting];
             }));
-            NonDefaults = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
+            ChangedSettings = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
             (missingConfigs.length > 0 || missingSettings.length > 0) && await writeSettings(userConfig);
             userConfig.Settings.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
             Config = {

@@ -28,12 +28,6 @@ those are hardcoded on ST and will stay available until they're not
 
 scenarios and char description are extracted from their hardcoded strings and replaced by the format you set
 
-> **ExampleChatPrefix** and **RealChatPrefix**
-
-those are hardcoded on ST and will stay available until they're not
-
-- **ExampleChatPrefix** default changed
-
 - **RealChatPrefix** default is now empty
 
 > **AllSamples** changed
@@ -49,8 +43,6 @@ moved to Settings
 - Error handling changes
 
 - RenewAlways is now more stable when set to false. still, regenerate once if you swap characters
-
-- `[Start a new chat]` no longer excluded, now replaced by ExampleChatPrefix/RealChatPrefix
 
 # 3.3
 added \[DONE\] to end of streams
@@ -228,7 +220,7 @@ should be more accurate now
 
 uses the AI's own retry mechanism when you regenerate on your frontend, if you change anything from your last prompt before regenerating it will default to old behavior
 
-> **PromptExperiment** added (defaults true)
+> **PromptExperiments** added (defaults true)
 
 an alternative way to send your prompt to the AI, through a file. set to false if it's bad
 both enabled: https://files.catbox.moe/io1q53.webm

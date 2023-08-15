@@ -38,7 +38,7 @@ nodejs>=20.4.*
     * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
     * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
 
- - `PromptExperiment`: (true)/false
+ - `PromptExperiments`: (true)/false
     * true is an alternative way to send your prompt to the AI
     * experiment before setting to false
 
@@ -108,7 +108,7 @@ nodejs>=20.4.*
 ---
 
 **experimental setup**
-> **PromptExperiment**: true
+> **PromptExperiments**: true
 
 > **SystemExperiments**: true
 
