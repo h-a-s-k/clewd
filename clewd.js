@@ -81,14 +81,13 @@ let uuidOrg;
         SystemExperiments: true,
         PreserveChats: false
     },
-    ExampleChatPrefix: '[EXAMPLE CHATS]\n',
-    RealChatPrefix: '[CHAT BEGIN]\n',
-    PromptMain: '{{MAIN_AND_CHARACTER}}\n{{CHAT_EXAMPLE}}\n{{CHAT_LOG}}\n{{JAILBREAK}}',
-    PromptReminder: '{{MAIN_AND_CHARACTER}}\n{{JAILBREAK}}\n{{LATEST_USER}}',
-    PromptContinue: '{{JAILBREAK}}\n{{LATEST_USER}}'
+    ExampleChatPrefix: 'Here are some dialogue examples:',
+    RealChatPrefix: '',
+    PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
+    ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
 
-const Main = 'clewd v3.3';
+const Main = 'clewd v3.4';
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -176,73 +175,6 @@ const deleteChat = async uuid => {
     updateCookies(res);
 };
 
-const messagesToPrompt = (messages, customPrompt) => {
-    let messagesClone = JSON.parse(JSON.stringify(messages));
-    let prompt = [ ...customPrompt || Config.PromptMain ].join('').trim();
-    let lastInterGlobalIdx = -1;
-    const interactionDividers = messagesClone.filter((message => 'system' === message.role && '[Start a new chat]' === message.content));
-    interactionDividers.forEach(((divider, idx) => {
-        if (idx !== interactionDividers.length - 1) {
-            divider.content = '' + Config.ExampleChatPrefix;
-        } else {
-            divider.content = '' + Config.RealChatPrefix;
-            lastInterGlobalIdx = messagesClone.findIndex((message => message === divider));
-        }
-    }));
-    const latestInteraction = [];
-    const lastAssistant = messagesClone.findLast((message => 'assistant' === message.role));
-    if (lastAssistant && Config.Settings.StripAssistant) {
-        lastAssistant.empty = true;
-        latestInteraction.push(lastAssistant);
-    }
-    const lastUser = messagesClone.findLast((message => 'user' === message.role));
-    if (lastUser && Config.Settings.StripHuman) {
-        lastUser.empty = true;
-        latestInteraction.push(lastUser);
-    }
-    let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
-    let sampleChats = messagesClone.filter((message => message.name && message.name.startsWith('example_')));
-    Config.Settings.AllSamples && !Config.Settings.NoSamples && chatLogs.forEach((message => {
-        if (message !== lastUser && message !== lastAssistant) {
-            if ('user' === message.role) {
-                message.name = 'example_user';
-                message.role = 'system';
-            } else {
-                if ('assistant' !== message.role) {
-                    throw Error('Invalid role ' + message.role);
-                }
-                message.name = 'example_assistant';
-                message.role = 'system';
-            }
-        }
-    }));
-    Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleChats.forEach((message => {
-        if ('example_user' === message.name) {
-            message.role = 'user';
-        } else {
-            if ('example_assistant' !== message.name) {
-                throw Error('Invalid role ' + message.name);
-            }
-            message.role = 'assistant';
-        }
-        delete message.name;
-    }));
-    const remainingSystem = messagesClone.filter((message => 'system' === message.role && !sampleChats.includes(message) && !interactionDividers.includes(message)));
-    let mainPromptCharacter = remainingSystem?.[0];
-    let jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
-    if (jailbreakPrompt === mainPromptCharacter) {
-        mainPromptCharacter = null;
-        jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
-    }
-    prompt = prompt.replace(/{{MAIN_AND_CHARACTER}}/gm, mainPromptCharacter?.content?.length > 0 ? '' + mainPromptCharacter?.content.trim() : '');
-    prompt = prompt.replace(/{{CHAT_EXAMPLE}}/gm, sampleChats.length < 1 ? '' : `\n${Config.ExampleChatPrefix}${sampleChats?.map((message => `${Replacements[message.name || message.role]}${message.content.trim()}`)).join('\n\n')}`);
-    prompt = prompt.replace(/{{CHAT_LOG}}/gm, chatLogs.length < 1 ? '' : `\n${Config.RealChatPrefix}${chatLogs?.map((message => `${message.empty ? '' : Replacements[message.role || message.name]}${message.content.trim()}`)).join('\n\n')}`);
-    prompt = prompt.replace(/{{JAILBREAK}}/gm, jailbreakPrompt?.content?.length > 0 ? '' + jailbreakPrompt?.content.trim() : '');
-    prompt = prompt.replace(/{{LATEST_USER}}/gm, lastUser ? `${lastUser.empty ? '' : Replacements[lastUser.role]}${lastUser.content.trim()}` : '');
-    prompt = prompt.replace(/{{LATEST_ASSISTANT}}/gm, lastAssistant ? `${lastAssistant.empty ? '' : Replacements[lastAssistant.role]}${lastAssistant.content.trim()}` : '');
-    return genericFixes(prompt).trim();
-};
-
 const setTitle = title => {
     title = `${Main} - ${title}`;
     process.title !== title && (process.title = title);
@@ -269,6 +201,7 @@ const onListen = async () => {
     setTitle('ok');
     updateCookies(Config.Cookie);
     updateCookies(accRes);
+    await checkResErr(accRes);
     console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => `[1m${setting}:[0m ${NonDefaults.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
@@ -314,6 +247,25 @@ const onListen = async () => {
     const conversations = await convRes.json();
     updateCookies(convRes);
     conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
+};
+
+const checkResErr = async res => {
+    if (res.status < 200 || res.status >= 300) {
+        let err = Error('Unexpected response code: ' + res.status);
+        try {
+            const json = await res.json();
+            const {error: errAPI} = json;
+            if (errAPI) {
+                errAPI.message && (err.message = errAPI.message);
+                errAPI.type && (err.type = errAPI.type);
+                if (429 === res.status && errAPI.resets_at) {
+                    const hours = ((new Date(1e3 * errAPI.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
+                    err.message += `, expires in ${hours} hours`;
+                }
+            }
+        } catch (err) {}
+        throw Error(err);
+    }
 };
 
 class ClewdStream extends TransformStream {
@@ -485,7 +437,7 @@ class ClewdStream extends TransformStream {
 }
 
 const writeSettings = async (config, firstRun = false) => {
-    FS.writeFileSync(ConfigPath, `/*\n* https://gitgud.io/ahsk/clewd\n* https://github.com/h-a-s-k/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval, PromptMain, PromptReminder, PromptContinue\n * when \`RenewAlways\` is set to true (default), \`Main\` is always the one being used\n\n * when \`RenewAlways\` is set to false, \`Main\` is sent on conversation start\n * then only \`Continue\` is sent as long as no impersonation happened\n * \`Simple\` and \`Reminder\` alternate every \`SystemInterval\`\n * \n * {{MAIN_AND_CHARACTER}}, {{CHAT_EXAMPLE}}, {{CHAT_LOG}}, {{JAILBREAK}}, {{LATEST_ASSISTANT}}, {{LATEST_USER}}\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#anchor-30\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
+    FS.writeFileSync(ConfigPath, `/*\n* https://gitgud.io/ahsk/clewd\n* https://github.com/h-a-s-k/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval\n * How many messages until \`SystemExperiments alternates\`\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * and\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
     if (firstRun) {
         console.warn('[33mConfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
         process.exit(0);
@@ -531,8 +483,7 @@ const Proxy = Server((async (req, res) => {
                 let shouldRenew = true;
                 let retryRegen = false;
                 try {
-                    const bufferComplete = Buffer.concat(buffer).toString();
-                    const body = JSON.parse(bufferComplete);
+                    const body = JSON.parse(Buffer.concat(buffer).toString());
                     const temperature = Math.max(.1, Math.min(1, body.temperature));
                     let {messages} = body;
                     if (messages?.length < 1) {
@@ -552,14 +503,14 @@ const Proxy = Server((async (req, res) => {
                     }
                     res.setHeader('Access-Control-Allow-Origin', '*');
                     body.stream && res.setHeader('Content-Type', 'text/event-stream');
-                    if (!body.stream && messages?.[0]?.content.startsWith('From the list below, choose a word that best represents a character\'s outfit description, action, or emotion in their dialogue.')) {
-                        return res.end(JSON.stringify({
+                    if (!body.stream && messages?.[0]?.content?.startsWith('From the list below, choose a word that best represents a character\'s outfit description, action, or emotion in their dialogue')) {
+                        return res.json({
                             choices: [ {
                                 message: {
                                     content: 'neutral'
                                 }
                             } ]
-                        }));
+                        });
                     }
                     if (Config.Settings.AllSamples && Config.Settings.NoSamples) {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
@@ -584,7 +535,6 @@ const Proxy = Server((async (req, res) => {
                             lastAssistant: prevMessages.findLast((message => 'assistant' === message.role))
                         }
                     };
-                    let prompt;
                     samePrompt = JSON.stringify(messages.filter((message => 'system' !== message.role)).sort()) === JSON.stringify(prevMessages.filter((message => 'system' !== message.role)).sort());
                     const sameCharDiffChat = !samePrompt && curPrompt.firstSystem?.content === prevPrompt.firstSystem?.content && curPrompt.firstUser.content !== prevPrompt.firstUser?.content;
                     shouldRenew = Config.Settings.RenewAlways || !Conversation.uuid || prevImpersonated || !Config.Settings.RenewAlways && samePrompt || sameCharDiffChat;
@@ -592,7 +542,6 @@ const Proxy = Server((async (req, res) => {
                     samePrompt || (prevMessages = JSON.parse(JSON.stringify(messages)));
                     let type = '';
                     if (retryRegen) {
-                        console.log(model + ' [[2mR[0m]');
                         type = 'R';
                         fetchAPI = await (async (signal, body, model) => {
                             const res = await fetch(AI.end() + '/api/retry_message', {
@@ -614,6 +563,7 @@ const Proxy = Server((async (req, res) => {
                                 })
                             });
                             updateCookies(res);
+                            await checkResErr(res);
                             return res;
                         })(signal, 0, model);
                     } else if (shouldRenew) {
@@ -634,33 +584,119 @@ const Proxy = Server((async (req, res) => {
                                 })
                             });
                             updateCookies(res);
+                            await checkResErr(res);
                             return res;
                         })(signal);
-                        console.log(model + ' [[2mr[0m]');
                         type = 'r';
-                        prompt = messagesToPrompt(messages);
                     } else if (samePrompt) {} else {
                         const systemExperiment = !Config.Settings.RenewAlways && Config.Settings.SystemExperiments;
-                        const fullSystem = !systemExperiment || systemExperiment && Conversation.depth >= Config.SystemInterval;
-                        const systemMessages = [ ...new Set(JSON.parse(JSON.stringify(messages)).filter((message => !message.name && 'system' === message.role)).filter((message => false === [ '[Start a new chat]', Replacements.new_chat ].includes(message.content)))) ];
-                        let trimmedMessages;
-                        let chosenPrompt;
-                        if (fullSystem) {
-                            console.log(`${model} [[2mc-r[0m] ${systemMessages.map((message => `"${message.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`)).join(' [33m/[0m ')}`);
-                            trimmedMessages = [ ...systemMessages, curPrompt.lastAssistant, curPrompt.lastUser ];
-                            Conversation.depth = 0;
-                            chosenPrompt = Config.PromptReminder;
+                        if (!systemExperiment || systemExperiment && Conversation.depth >= Config.SystemInterval) {
                             type = 'c-r';
+                            Conversation.depth = 0;
                         } else {
-                            const jailbreak = systemMessages[systemMessages.length - 1];
-                            console.log(`${model} [[2mc-c[0m] "${jailbreak.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`);
-                            trimmedMessages = [ ...systemMessages, curPrompt.lastUser ];
-                            chosenPrompt = Config.PromptContinue;
                             type = 'c-c';
+                            Conversation.depth++;
                         }
-                        prompt = messagesToPrompt(trimmedMessages, chosenPrompt);
-                        Conversation.depth++;
                     }
+                    let {prompt, systems} = ((messages, type) => {
+                        const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i;
+                        const rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i;
+                        const messagesClone = JSON.parse(JSON.stringify(messages));
+                        const realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role)));
+                        const sampleLogs = messagesClone.filter((message => [ 'example_user', 'example_assistant' ].includes(message.name)));
+                        const mergedLogs = [ ...sampleLogs, ...realLogs ];
+                        mergedLogs.forEach(((message, idx) => {
+                            const next = realLogs[idx + 1];
+                            if (next) {
+                                if (message.name && next.name && message.name === next.name) {
+                                    message.content += '\n' + next.content;
+                                    next.merged = true;
+                                } else if (next.role === message.role) {
+                                    message.content += '\n' + next.content;
+                                    next.merged = true;
+                                }
+                            }
+                        }));
+                        const lastAssistant = realLogs.findLast((message => !message.merged && 'assistant' === message.role));
+                        lastAssistant && Config.Settings.StripAssistant && (lastAssistant.strip = true);
+                        const lastUser = realLogs.findLast((message => !message.merged && 'user' === message.role));
+                        lastUser && Config.Settings.StripHuman && (lastUser.strip = true);
+                        const systemMessages = messagesClone.filter((message => 'system' === message.role && !message.name));
+                        systemMessages.forEach(((message, idx) => {
+                            const scenario = message.content.match(rgxScenario)?.[1];
+                            const personality = message.content.match(rgxPerson);
+                            if (scenario) {
+                                message.content = Config.ScenarioFormat.replace(/{{SCENARIO}}/g, scenario);
+                                message.scenario = true;
+                            }
+                            if (3 === personality?.length) {
+                                message.content = Config.PersonalityFormat.replace(/{{CHAR}}/g, personality[1].replace(/{{PERSONALITY}}/g, personality[2]));
+                                message.personality = true;
+                            }
+                            message.main = 0 === idx;
+                            message.jailbreak = idx === systemMessages.length - 1;
+                        }));
+                        Config.Settings.AllSamples && !Config.Settings.NoSamples && realLogs.forEach((message => {
+                            if ('user' === message.role) {
+                                message.name = 'example_user';
+                                message.role = 'system';
+                            } else {
+                                if ('assistant' !== message.role) {
+                                    throw Error('Invalid role ' + message.role);
+                                }
+                                message.name = 'example_assistant';
+                                message.role = 'system';
+                            }
+                        }));
+                        Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleLogs.forEach((message => {
+                            if ('example_user' === message.name) {
+                                message.role = 'user';
+                            } else {
+                                if ('example_assistant' !== message.name) {
+                                    throw Error('Invalid role ' + message.name);
+                                }
+                                message.role = 'assistant';
+                            }
+                            delete message.name;
+                        }));
+                        let systems = [];
+                        if (![ 'r', 'R' ].includes(type)) {
+                            lastUser.strip = true;
+                            systemMessages.forEach((message => message.discard = message.discard || 'c-c' === type ? !message.jailbreak : !message.jailbreak && !message.main));
+                            systems = systemMessages.filter((message => !message.discard)).map((message => `"${message.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`));
+                            messagesClone.forEach((message => message.discard = message.discard || mergedLogs.includes(message) && ![ lastUser ].includes(message)));
+                        }
+                        const interactionDividers = systemMessages.filter((message => '[start a new chat]' === message.content.toLowerCase()));
+                        interactionDividers.forEach(((divider, idx) => {
+                            let real = idx === interactionDividers.length - 1;
+                            let useReal = Config.Settings.NoSamples || real;
+                            let useExample = Config.Settings.AllSamples || !real;
+                            if (useReal) {
+                                divider.content = '' + Config.RealChatPrefix;
+                                Config.Settings.AllSamples && (divider.discard = true);
+                            }
+                            if (useExample) {
+                                divider.content = '' + Config.ExampleChatPrefix;
+                                Config.Settings.NoSamples && (divider.discard = true);
+                            }
+                        }));
+                        const prompt = messagesClone.map(((message, idx) => {
+                            if (message.merged || message.discard) {
+                                return '';
+                            }
+                            if (message.content.length < 1) {
+                                return message.content;
+                            }
+                            let spacing = '';
+                            idx > 0 && (spacing = systemMessages.includes(message) || message.name ? '\n' : '\n\n');
+                            return `${spacing}${message.strip ? '' : Replacements[message.name || message.role]}${message.content.trim()}`;
+                        }));
+                        return {
+                            prompt: genericFixes(prompt.join('')).trim(),
+                            systems
+                        };
+                    })(messages, type);
+                    console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiment) {
@@ -685,7 +721,7 @@ const Proxy = Server((async (req, res) => {
                                         temperature
                                     },
                                     prompt,
-                                    timezone: 'America/New_York',
+                                    timezone: 'Europe/London',
                                     model
                                 },
                                 organization_uuid: uuidOrg,
@@ -695,29 +731,10 @@ const Proxy = Server((async (req, res) => {
                             })
                         });
                         updateCookies(res);
+                        await checkResErr(res);
                         return res;
                     })(signal, 0, model, prompt, temperature));
                     const response = Writable.toWeb(res);
-                    if (429 === fetchAPI.status) {
-                        const err = {
-                            message: 'Rate limited',
-                            code: fetchAPI.status
-                        };
-                        try {
-                            const json = await fetchAPI.json();
-                            if (json.error) {
-                                err.message = json.error.message;
-                                if (json.error.resets_at) {
-                                    const hours = ((new Date(1e3 * json.error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
-                                    err.message += `, expires in ${hours} hours`;
-                                }
-                            }
-                        } catch (err) {}
-                        throw Error(err.message);
-                    }
-                    if (200 !== fetchAPI.status) {
-                        return fetchAPI.body.pipeTo(response);
-                    }
                     'R' !== type || prompt || (prompt = '...regen...');
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
                     clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
