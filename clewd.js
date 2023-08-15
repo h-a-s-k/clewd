@@ -83,8 +83,6 @@ let uuidOrg;
         PreserveChats: false,
         LogMessages: false
     },
-    ExampleChatPrefix: 'Here are some dialogue examples:',
-    RealChatPrefix: '',
     PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
     ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
@@ -637,20 +635,6 @@ const Proxy = Server((async (req, res) => {
                             systems = systemMessages.filter((message => !message.discard)).map((message => `"${message.content.substring(0, 25).replace(/\n/g, '\\n').trim()}..."`));
                             messagesClone.forEach((message => message.discard = message.discard || mergedLogs.includes(message) && ![ lastUser ].includes(message)));
                         }
-                        const interactionDividers = systemMessages.filter((message => '[start a new chat]' === message.content.toLowerCase()));
-                        interactionDividers.forEach(((divider, idx) => {
-                            let real = idx === interactionDividers.length - 1;
-                            let useReal = Config.Settings.NoSamples || real;
-                            let useExample = Config.Settings.AllSamples || !real;
-                            if (useReal) {
-                                divider.content = '' + Config.RealChatPrefix;
-                                Config.Settings.AllSamples && (divider.discard = true);
-                            }
-                            if (useExample) {
-                                divider.content = '' + Config.ExampleChatPrefix;
-                                Config.Settings.NoSamples && (divider.discard = true);
-                            }
-                        }));
                         const prompt = messagesClone.map(((message, idx) => {
                             if (message.merged || message.discard) {
                                 return '';

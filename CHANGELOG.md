@@ -28,12 +28,6 @@ those are hardcoded on ST and will stay available until they're not
 
 scenarios and char description are extracted from their hardcoded strings and replaced by the format you set
 
-> **ExampleChatPrefix** and **RealChatPrefix**
-
-those are hardcoded on ST and will stay available until they're not
-
-- **ExampleChatPrefix** default changed
-
 - **RealChatPrefix** default is now empty
 
 > **AllSamples** changed
@@ -49,8 +43,6 @@ moved to Settings
 - Error handling changes
 
 - RenewAlways is now more stable when set to false. still, regenerate once if you swap characters
-
-- `[Start a new chat]` no longer excluded, now replaced by ExampleChatPrefix/RealChatPrefix
 
 # 3.3
 added \[DONE\] to end of streams
