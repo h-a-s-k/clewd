@@ -114,8 +114,10 @@ nodejs>=20.4.*
 
 > **RetryRegenerate**: true
 
-> **StripAssistant**: true (add prefill to jailbreak in this case)
-
 > **PreventImperson**: true
 
 > **RenewAlways**: false
+
+> **AllSamples**: true
+
+> **StripAssistant**: true (add prefill to jailbreak in this case)
