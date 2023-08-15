@@ -73,7 +73,7 @@ CookieChanger.on('ChangeCookie', () => {
 });
 
 const padJson = (json) => {
-    if (Config.padtxt_placeholder?.length > 0){
+    if (Config.padtxt_placeholder.length > 0){
         var placeholder = Config.padtxt_placeholder;
     }
     else {
