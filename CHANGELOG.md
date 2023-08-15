@@ -13,6 +13,9 @@
 </div>
 
 # 3.4
+> **Streaming changes**
+turns out I could've fixed the broken formatting long ago, should work great now
+
 > Prompt conversion and **SystemExperiments** reworked
 
 > **Prompts** (PromptMain, PromptReminder, PromptContinue) from 3.0 removed
@@ -36,6 +39,10 @@ those are hardcoded on ST and will stay available until they're not
 > **AllSamples** changed
 
 no longer excludes the last two messages when transforming
+
+> **LogMessages** changed
+
+moved to Settings
 
 > **Minor changes**
 

@@ -78,6 +78,9 @@ nodejs>=20.4.*
     * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
     - H->Human
     - A->Assistant
+	
+ - `LogMessages`: (false)/true
+    * true logs prompt and reply to `log.txt`
 
  - `ClearFlags`: (false)/true
     * possibly snake-oil

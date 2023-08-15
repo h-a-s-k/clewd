@@ -66,20 +66,20 @@ let uuidOrg;
     Port: 8444,
     BufferSize: 8,
     SystemInterval: 3,
-    LogMessages: false,
     Settings: {
-        AllSamples: false,
-        ClearFlags: false,
-        NoSamples: false,
-        PassParams: false,
         PreventImperson: false,
         PromptExperiment: true,
         RetryRegenerate: false,
         RenewAlways: true,
+        SystemExperiments: true,
+        AllSamples: false,
+        NoSamples: false,
         StripAssistant: false,
         StripHuman: false,
-        SystemExperiments: true,
-        PreserveChats: false
+        PassParams: false,
+        ClearFlags: false,
+        PreserveChats: false,
+        LogMessages: false
     },
     ExampleChatPrefix: 'Here are some dialogue examples:',
     RealChatPrefix: '',
@@ -133,8 +133,6 @@ const bytesToSize = (bytes = 0) => {
     const c = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 4);
     return 0 === c ? `${bytes} ${b[c]}` : `${(bytes / 1024 ** c).toFixed(1)} ${b[c]}`;
 };
-
-const cleanJSON = json => json.replace(/^data: {/gi, '{').replace(/\s+$/gi, '');
 
 const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
 
@@ -252,6 +250,7 @@ const onListen = async () => {
 const checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
+        err.planned = true;
         try {
             const json = await res.json();
             const {error: errAPI} = json;
@@ -289,8 +288,6 @@ class ClewdStream extends TransformStream {
     #abortController=void 0;
     #modelName=void 0;
     #compAll=[];
-    #compValid=[];
-    #compInvalid=[];
     #recvLength=0;
     #stopLoc=void 0;
     #stopReason=void 0;
@@ -299,17 +296,8 @@ class ClewdStream extends TransformStream {
     get size() {
         return this.#recvLength;
     }
-    get valid() {
-        return this.#compValid.length;
-    }
-    get invalid() {
-        return this.#compInvalid.length;
-    }
     get total() {
-        return this.valid + this.invalid;
-    }
-    get broken() {
-        return (this.invalid / this.total * 100).toFixed(2) + '%';
+        return this.#compAll.length;
     }
     get censored() {
         return this.#hardCensor;
@@ -319,7 +307,7 @@ class ClewdStream extends TransformStream {
     }
     empty() {
         this.#compOK = '';
-        this.#compAll = this.#compValid = this.#compInvalid = [];
+        this.#compAll = [];
         this.#recvLength = 0;
     }
     #cutBuffer() {
@@ -390,39 +378,20 @@ class ClewdStream extends TransformStream {
     }
     #handle(chunk, controller) {
         this.#recvLength += chunk.byteLength || 0;
-        let parsed = {};
+        let completion = '';
         let delayChunk;
-        chunk = Decoder.decode(chunk);
-        chunk = cleanJSON(chunk);
+        chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
         try {
-            const clean = cleanJSON(chunk);
-            parsed = JSON.parse(clean);
-            this.#stopLoc = parsed.stop;
-            this.#stopReason = parsed.stop_reason;
-            this.#compValid.push(parsed.completion);
-            parsed.error;
-        } catch (err) {
-            const {stopMatch, stopReasonMatch, completionMatch, errorMatch} = (chunk => ({
-                completionMatch: (chunk = 'string' == typeof chunk ? chunk : Decoder.decode(chunk)).match(/(?<="completion"\s?:\s?")(.*?)(?=\\?",?)/gi),
-                stopMatch: chunk.match(/(?<="stop"\s?:\s?")(.*?)(?=\\?",?)/gi),
-                stopReasonMatch: chunk.match(/(?<="stop_reason"\s?:\s?")(.*?)(?=\\?",?)/gi),
-                errorMatch: chunk.match(/(?<="message"\s?:\s?")(.*?)(?=\\?",?)/gi)
-            }))(chunk);
-            stopMatch && (parsed.stop = stopMatch.join(''));
-            stopReasonMatch && (parsed.stop_reason = stopReasonMatch.join(''));
-            if (completionMatch) {
-                parsed.completion = completionMatch.join('');
-                this.#compInvalid.push(parsed.completion);
-            }
-        } finally {
-            this.#stopReason = parsed.stop_reason;
-            this.#stopLoc = parsed.stop;
-        }
-        if (parsed.completion) {
-            parsed.completion = genericFixes(parsed.completion);
-            this.#compOK += parsed.completion;
-            this.#compAll.push(parsed.completion);
-            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
+            const chunks = chunk.split('\n').map((chunk => JSON.parse(chunk)));
+            chunks.find((chunk => chunk.error));
+            completion = genericFixes(chunks.map((chunk => chunk.completion)).join(''));
+            this.#stopLoc || (this.#stopLoc = chunks.find((chunk => chunk.stop_loc))?.stop);
+            this.#stopReason || (this.#stopReason = chunks.find((chunk => chunk.stop_reason))?.stop_reason);
+        } catch (err) {}
+        if (completion) {
+            this.#compOK += completion;
+            this.#compAll.push(completion);
+            delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || completion.startsWith(char)));
             if (this.#streaming) {
                 delayChunk && this.#impersonationCheck(this.#compOK, controller);
                 for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
@@ -630,7 +599,7 @@ const Proxy = Server((async (req, res) => {
                                 message.scenario = true;
                             }
                             if (3 === personality?.length) {
-                                message.content = Config.PersonalityFormat.replace(/{{CHAR}}/g, personality[1].replace(/{{PERSONALITY}}/g, personality[2]));
+                                message.content = Config.PersonalityFormat.replace(/{{CHAR}}/gm, personality[1]).replace(/{{PERSONALITY}}/gm, personality[2]);
                                 message.personality = true;
                             }
                             message.main = 0 === idx;
@@ -744,7 +713,7 @@ const Proxy = Server((async (req, res) => {
                     if ('AbortError' === err.name) {
                         return res.end();
                     }
-                    console.error('[33mClewd:[0m\n%o', err);
+                    err.planned || console.error('[33mClewd:[0m\n%o', err);
                     res.json({
                         error: {
                             message: 'clewd: ' + (err.message || err.name || err.type),
@@ -758,7 +727,7 @@ const Proxy = Server((async (req, res) => {
                     if (clewdStream) {
                         clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                         prevImpersonated = clewdStream.impersonated;
-                        console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m ${clewdStream.broken} broken\n`);
+                        console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
                         setTitle('ok ' + bytesToSize(clewdStream.size));
                         clewdStream.empty();
                     }
@@ -821,7 +790,7 @@ const Proxy = Server((async (req, res) => {
             }));
             NonDefaults = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
             (missingConfigs.length > 0 || missingSettings.length > 0) && await writeSettings(userConfig);
-            userConfig.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
+            userConfig.Settings.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
             Config = {
                 ...Config,
                 ...userConfig
