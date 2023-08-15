@@ -286,9 +286,9 @@ const messagesToPrompt = (messages, customPrompt) => {
     const interactionDividers = messagesClone.filter((message => 'system' === message.role && '[Start a new chat]' === message.content));
     interactionDividers.forEach(((divider, idx) => {
         if (idx !== interactionDividers.length - 1) {
-            divider.content = '' + Config.ExampleChatPrefix;
+            //divider.content = '' + Config.ExampleChatPrefix;
         } else {
-            divider.content = '' + Config.RealChatPrefix;
+            //divider.content = '' + Config.RealChatPrefix;
             lastInterGlobalIdx = messagesClone.findIndex((message => message === divider));
         }
     }));
@@ -303,7 +303,7 @@ const messagesToPrompt = (messages, customPrompt) => {
         lastUser.empty = true;
         latestInteraction.push(lastUser);
     } 
-    //let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
+    let chatLogs = messagesClone.filter((message => !message.name && [ 'user', 'assistant' ].includes(message.role)));
     let sampleChats = messagesClone.filter((message => message.name && message.name.startsWith('example_')));
     Config.Settings.AllSamples && !Config.Settings.NoSamples && chatLogs.forEach((message => {
         if (message !== lastUser && message !== lastAssistant) {
@@ -338,12 +338,13 @@ const messagesToPrompt = (messages, customPrompt) => {
         jailbreakPrompt = remainingSystem?.[remainingSystem.length - 1];
     }
 /******************************* */
-    let chatLogs = messagesClone.filter(message => {
-        return !message.name && 
-               ['user', 'assistant', 'system'].includes(message.role) && 
-               message !== mainPromptCharacter && 
-               message !== jailbreakPrompt;
-    });
+    chatLogs = messagesClone.filter(message => 
+        !message.name && 
+        ['user', 'assistant', 'system'].includes(message.role) && 
+        message !== mainPromptCharacter && 
+        message !== jailbreakPrompt &&
+        message.content !== '[Start a new chat]'
+    );
 /******************************* */    
     prompt = prompt.replace(/{{MAIN_AND_CHARACTER}}/gm, mainPromptCharacter?.content?.length > 0 ? '' + mainPromptCharacter?.content.trim() : '');
     prompt = prompt.replace(/{{CHAT_EXAMPLE}}/gm, sampleChats.length < 1 ? '' : `\n${Config.ExampleChatPrefix}${sampleChats?.map((message => `${Replacements[message.name || message.role]}${message.content.trim()}`)).join('\n\n')}`);
@@ -378,6 +379,13 @@ const onListen = async () => {
     });
     const accInfo = (await accRes.json())?.[0];
     if (!accInfo || accInfo.error) {
+/**************************** */
+        if (accRes.statusText === 'Forbidden' && Config.CookieArray.length > 0){
+            Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
+            writeSettings(Config);
+            return CookieChanger.emit('ChangeCookie');
+        }
+/**************************** */
         throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText}"`);
     }
     if (!accInfo?.uuid) {
@@ -429,6 +437,9 @@ const onListen = async () => {
             const json = await req.json();
             console.log(`${type}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag.type))));
+/***************************** */
+        CookieChanger.emit('ChangeCookie');
+/***************************** */
     }
     const convRes = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
         method: 'GET',
