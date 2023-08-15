@@ -381,6 +381,16 @@ const checkResErr = async res => {
         err.planned = true;
         try {
             const json = await res.json();
+            if (json.error) {
+                if (json.error.message.includes('read-only mode')) {
+                    Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
+                    writeSettings(Config);
+                    CookieChanger.emit('ChangeCookie');
+                }
+                else if (json.error.message.includes('Exceeded completions limit')) {
+                    CookieChanger.emit('ChangeCookie');
+                }
+            }
             const {error: errAPI} = json;
             if (errAPI) {
                 errAPI.message && (err.message = errAPI.message);
