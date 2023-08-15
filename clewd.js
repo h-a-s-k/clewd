@@ -523,7 +523,7 @@ class ClewdStream extends TransformStream {
             parsed = JSON.parse(match);
             if (parsed.error) {
                 console.warn(`[31m${this.#modelName}: ${parsed.error}[0m`);
-                parsed.completion = `## ${Main}\n**${this.#modelName}**: ${parsed.error}`;
+                parsed.completion = `## ${Main}\n**${this.#modelName}**:\n\`\`\`${JSON.stringify(parsed.error)}\`\`\``;
             }
             this.#compAll.push(parsed.completion);
             if (parsed.completion) {
