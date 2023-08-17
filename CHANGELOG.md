@@ -12,6 +12,10 @@
 </a>
 </div>
 
+# 3.7
+
+using custom library to see if termux works
+
 # 3.6
 > ### **Superfetch** added (defaults true)
 
