@@ -130,18 +130,18 @@ const AddxmlPlot = (content) => {
     }
   
     let sexMatch = content.match(/\n##.*?\n<sex>[\s\S]*?<\/sex>\n/);
-    let deleteMatch = content.match(/\n##.*?\n<delete>[\s\S]*?<\/delete>\n/);
+    let processMatch = content.match(/\n##.*?\n<process>[\s\S]*?<\/process>\n/);
   
-    if (sexMatch && deleteMatch) {
+    if (sexMatch && processMatch) {
         content = content.replace(sexMatch[0], ""); // 移除<sex>部分
-        content = content.replace(deleteMatch[0], sexMatch[0] + deleteMatch[0]); // 将<sex>部分插入<delete>部分的前面
+        content = content.replace(processMatch[0], sexMatch[0] + processMatch[0]); // 将<sex>部分插入<delete>部分的前面
     }
 
     let illustrationMatch = content.match(/\n##.*?\n<illustration>[\s\S]*?<\/illustration>\n/);
 
-    if (illustrationMatch && deleteMatch) {
+    if (illustrationMatch && processMatch) {
         content = content.replace(illustrationMatch[0], ""); // 移除<illustration>部分
-        content = content.replace(deleteMatch[0], illustrationMatch[0] + deleteMatch[0]); // 将<illustration>部分插入<delete>部分的前面
+        content = content.replace(processMatch[0], illustrationMatch[0] + processMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
     content = content.replace(/\n\n<(hidden|\/plot)>[\s\S]*?\n\n<extra_prompt>\s*/, '\n\nHuman:'); //sd prompt用
