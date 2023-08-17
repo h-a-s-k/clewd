@@ -8,9 +8,11 @@ const {createServer: Server, IncomingMessage, ServerResponse} = require('node:ht
 
 const {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto');
 
-const {TransformStream} = require('node:stream/web');
+const {TransformStream, ReadableStream} = require('node:stream/web');
 
 const {Readable, Writable} = require('node:stream');
+
+const {Blob} = require('node:buffer');
 
 const FS = require('node:fs');
 
@@ -19,6 +21,8 @@ const Path = require('node:path');
 const Decoder = new TextDecoder;
 
 const Encoder = new TextEncoder;
+
+const CycleTLS = require('cycletls');
 
 let ChangedSettings;
 
@@ -87,7 +91,7 @@ let uuidOrg;
     ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
 
-const Main = 'clewd v3.4';
+const Main = 'clewd v3.5';
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -105,9 +109,9 @@ Array.prototype.sample = function() {
 
 const AI = {
     end: () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
-    modelA: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
-    modelB: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 105, 110, 115, 116, 97, 110, 116, 45, 49 ]).toString(),
-    agent: () => JSON.parse(Buffer.from([ 91, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 53, 46, 48, 46, 49, 57, 48, 49, 46, 49, 56, 56, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 59, 32, 114, 118, 58, 49, 48, 57, 46, 48, 41, 32, 71, 101, 99, 107, 111, 47, 50, 48, 49, 48, 48, 49, 48, 49, 32, 70, 105, 114, 101, 102, 111, 120, 47, 49, 49, 54, 46, 48, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 79, 80, 82, 47, 49, 48, 50, 46, 48, 46, 48, 46, 48, 34, 93 ]).toString()).sample(),
+    mdl: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
+    cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
+    agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 77, 97, 99, 105, 110, 116, 111, 115, 104, 59, 32, 73, 110, 116, 101, 108, 32, 77, 97, 99, 32, 79, 83, 32, 88, 32, 49, 48, 95, 49, 53, 95, 55, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString(),
     hdr: () => ({
         'Content-Type': 'application/json',
         Referer: AI.end() + '/',
@@ -136,8 +140,13 @@ const bytesToSize = (bytes = 0) => {
 
 const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
 
-const updateCookies = cookieInfo => {
-    let cookieNew = cookieInfo instanceof Response ? cookieInfo.headers?.get('set-cookie') : cookieInfo.split('\n').join('');
+const updateParams = res => {
+    updateCookies(res);
+};
+
+const updateCookies = res => {
+    let cookieNew = '';
+    cookieNew = res instanceof Response ? res.headers?.get('set-cookie') : res.superfetch ? res.headers['Set-Cookie'].join(';') : res.split('\n').join('');
     if (!cookieNew) {
         return;
     }
@@ -150,7 +159,10 @@ const updateCookies = cookieInfo => {
     }
 };
 
-const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
+const getCookies = () => {
+    const cookieNames = Object.keys(cookies);
+    return cookieNames.map(((name, idx) => `${name}=${cookies[name]}${idx === cookieNames.length - 1 ? '' : ';'}`)).join(' ').replace(/(\s+)$/gi, '');
+};
 
 const deleteChat = async uuid => {
     if (!uuid) {
@@ -170,7 +182,7 @@ const deleteChat = async uuid => {
         },
         method: 'DELETE'
     });
-    updateCookies(res);
+    updateParams(res);
 };
 
 const setTitle = title => {
@@ -198,7 +210,7 @@ const onListen = async () => {
     }
     setTitle('ok');
     updateCookies(Config.Cookie);
-    updateCookies(accRes);
+    updateParams(accRes);
     await checkResErr(accRes);
     console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
     console.log('Logged in %o', {
@@ -230,7 +242,7 @@ const onListen = async () => {
                 },
                 method: 'POST'
             });
-            updateCookies(req);
+            updateParams(req);
             const json = await req.json();
             console.log(`${type}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag.type))));
@@ -243,18 +255,18 @@ const onListen = async () => {
         }
     });
     const conversations = await convRes.json();
-    updateCookies(convRes);
+    updateParams(convRes);
     conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
 };
 
 const checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
-        err.planned = true;
         try {
             const json = await res.json();
             const {error: errAPI} = json;
             if (errAPI) {
+                err.planned = true;
                 errAPI.message && (err.message = errAPI.message);
                 errAPI.type && (err.type = errAPI.type);
                 if (429 === res.status && errAPI.resets_at) {
@@ -268,7 +280,7 @@ const checkResErr = async res => {
 };
 
 class ClewdStream extends TransformStream {
-    constructor(minSize = 8, modelName = AI.modelA(), streaming, abortController) {
+    constructor(minSize = 8, modelName = AI.mdl(), streaming, abortController) {
         super({
             transform: (chunk, controller) => {
                 this.#handle(chunk, controller);
@@ -408,6 +420,7 @@ class ClewdStream extends TransformStream {
         } catch (err) {}
     }
     #handle(chunk, controller) {
+        'string' == typeof chunk && (chunk = Encoder.encode(chunk));
         this.#recvLength += chunk.byteLength || 0;
         chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
         this.#compRaw += chunk;
@@ -440,7 +453,7 @@ const Proxy = Server((async (req, res) => {
       case '/v1/models':
         res.json({
             data: [ {
-                id: AI.modelA()
+                id: AI.mdl()
             } ]
         });
         break;
@@ -460,7 +473,6 @@ const Proxy = Server((async (req, res) => {
             }));
             req.on('end', (async () => {
                 let clewdStream;
-                let titleTimer;
                 let samePrompt = false;
                 let shouldRenew = true;
                 let retryRegen = false;
@@ -498,7 +510,7 @@ const Proxy = Server((async (req, res) => {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
                         throw Error('Only one can be used at the same time: AllSamples/NoSamples');
                     }
-                    const model = AI.modelA();
+                    const model = AI.mdl();
                     curPrompt = {
                         firstUser: messages.find((message => 'user' === message.role)),
                         firstSystem: messages.find((message => 'system' === message.role)),
@@ -544,7 +556,7 @@ const Proxy = Server((async (req, res) => {
                                     text: ''
                                 })
                             });
-                            updateCookies(res);
+                            updateParams(res);
                             await checkResErr(res);
                             return res;
                         })(signal, 0, model);
@@ -565,7 +577,7 @@ const Proxy = Server((async (req, res) => {
                                     name: ''
                                 })
                             });
-                            updateCookies(res);
+                            updateParams(res);
                             await checkResErr(res);
                             return res;
                         })(signal);
@@ -676,38 +688,68 @@ const Proxy = Server((async (req, res) => {
                             });
                             prompt = '';
                         }
-                        const res = await fetch(AI.end() + '/api/append_message', {
-                            signal,
-                            headers: {
-                                ...AI.hdr(),
-                                Cookie: getCookies()
-                            },
+                        const res = await (async params => {
+                            const cycle = await CycleTLS();
+                            let options = {
+                                headers: {
+                                    ...AI.hdr(),
+                                    ...params.headers && {
+                                        ...params.headers
+                                    }
+                                },
+                                ...params.body && {
+                                    body: 'string' != typeof params.body ? JSON.stringify(params.body) : params.body
+                                },
+                                userAgent: AI.agent(),
+                                ja3: AI.cp(),
+                                timeout: 120,
+                                disableRedirect: true
+                            };
+                            const res = await cycle(params.url, options, params.method.toLowerCase());
+                            res.superfetch = true;
+                            cycle.exit();
+                            return res;
+                        })({
+                            url: AI.end() + '/api/append_message',
                             method: 'POST',
-                            body: JSON.stringify({
+                            body: {
                                 completion: {
                                     ...Config.Settings.PassParams && {
                                         temperature
                                     },
                                     prompt,
-                                    timezone: 'Europe/London',
+                                    timezone: 'America/New_York',
                                     model
                                 },
                                 organization_uuid: uuidOrg,
                                 conversation_uuid: Conversation.uuid,
                                 text: prompt,
                                 attachments
-                            })
+                            },
+                            headers: {
+                                Accept: 'text/event-stream',
+                                Cookie: getCookies(),
+                                'User-Agent': AI.agent()
+                            }
                         });
-                        updateCookies(res);
+                        updateParams(res);
+                        await checkResErr(res);
+                        updateParams(res);
                         await checkResErr(res);
                         return res;
-                    })(signal, 0, model, prompt, temperature));
+                    })(0, 0, model, prompt, temperature));
                     const response = Writable.toWeb(res);
                     'R' !== type || prompt || (prompt = '...regen...');
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
-                    clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
-                    titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
-                    await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    const superStream = new ReadableStream({
+                        start(controller) {
+                            fetchAPI.body.split('\n').filter((message => '\n' !== message)).forEach((message => controller.enqueue(message)));
+                            controller.close();
+                        }
+                    });
+                    setTitle('ok ' + bytesToSize(Encoder.encode(fetchAPI.body).byteLength));
+                    clewdStream = new ClewdStream(Config.BufferSize, model, true, controller);
+                    await superStream.pipeThrough(clewdStream).pipeTo(response);
                 } catch (err) {
                     if ('AbortError' === err.name) {
                         return res.end();
@@ -722,7 +764,6 @@ const Proxy = Server((async (req, res) => {
                         }
                     });
                 } finally {
-                    clearInterval(titleTimer);
                     if (clewdStream) {
                         clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                         prevImpersonated = clewdStream.impersonated;
