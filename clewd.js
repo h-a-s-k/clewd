@@ -385,7 +385,7 @@ class ClewdStream extends TransformStream {
         330 === this.#recvLength && (this.#hardCensor = true);
         if (this.#streaming) {
             this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
-            controller.enqueue('[DONE]');
+            controller.enqueue('data: [DONE]\n\n');
         } else {
             controller.enqueue(this.#build(this.#compAll.join('')));
         }
@@ -415,7 +415,7 @@ class ClewdStream extends TransformStream {
                 const selection = reply.substring(0, fakeAny);
                 console.warn(`[33mimpersonation, dropped:[0m "[4m${reply.substring(fakeAny, reply.length).replace(/\n/g, '\\n')}[0m..."`);
                 controller.enqueue(this.#build(selection));
-                this.#streaming && controller.enqueue('[DONE]');
+                this.#streaming && controller.enqueue('data: [DONE]\n\n');
                 this.#print();
                 this.#abortController.abort();
                 return controller.terminate();
