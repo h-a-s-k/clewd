@@ -62,6 +62,8 @@ let uuidOrg;
 /******************************************************* */
 let currentIndex = 0;
 
+let Firstlogin = true;
+
 const events = require('events');
 const CookieChanger = new events.EventEmitter();
 
@@ -284,11 +286,22 @@ const setTitle = title => {
 
 const onListen = async () => {
 /***************************** */
+    if (Firstlogin) {
+        Firstlogin = false;   
+        console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);    
+        if (Config.Settings.localtunnel) {
+            const localtunnel = require('localtunnel');
+            localtunnel({ port: Config.Port })
+            .then((tunnel) => {
+                console.log(`\nTunnel URL for outer websites: ${tunnel.url}/v1\n`);
+            })
+        }
+    }
     if (Config.CookieArray.length > 0) {
         currentIndex = (currentIndex + 1) % Config.CookieArray.length;
         Config.Cookie = Config.CookieArray[currentIndex];
     }
-/***************************** */
+/**************************** */    
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
@@ -317,16 +330,7 @@ const onListen = async () => {
     updateCookies(Config.Cookie);
     updateCookies(accRes);
     await checkResErr(accRes);
-    console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
-/*******************************/    
-    if (Config.Settings.localtunnel) {
-        const localtunnel = require('localtunnel');
-        localtunnel({ port: Config.Port })
-        .then((tunnel) => {
-            console.log(`\nTunnel URL for outer websites: ${tunnel.url}/v1\n`);
-        })
-    }
-/*******************************/
+    //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);            
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
         capabilities: accInfo.capabilities
