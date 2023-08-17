@@ -11,6 +11,15 @@
   />
 </a>
 </div>
+# 3.5
+> **Streaming changes**
+fixed the dreaded bug, shit is unstable don't expect much
+
+keep streaming enabled for now
+
+can try to fix non-stream later, same with error handling and **RetryRegenerate**
+
+lastly, fuck you rats ;)
 
 # 3.4
 > **Streaming changes**
