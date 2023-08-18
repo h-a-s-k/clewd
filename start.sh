@@ -2,7 +2,7 @@
 
 if ! command -v npm &> /dev/null
 then
-    echo "Install nodejs first"
+    echo "Install nodejs"
 fi
 
 npm install --no-audit --fund false
