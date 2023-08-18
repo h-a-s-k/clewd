@@ -186,12 +186,12 @@ const AddxmlPlot = (content) => {
         ClearFlags: true,
         PreserveChats: true,
         LogMessages: true,
-        Superfetch: true,
         FullColon: true,
         padtxt: true,
         xmlPlot: true,
         localtunnel: false,       
-        VPNfree: false
+        VPNfree: true,
+        Superfetch: false
     },
     PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
     ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
