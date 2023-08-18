@@ -66,6 +66,8 @@ let uuidOrg;
 /******************************************************* */
 let currentIndex = 0;
 
+let Firstlogin = true;
+
 const events = require('events');
 const CookieChanger = new events.EventEmitter();
 
