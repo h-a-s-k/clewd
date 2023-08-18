@@ -34,6 +34,10 @@ nodejs>=20.4.*
 
 ### SettingName: (DEFAULT)/opt1/opt2...
 
+ - `Superfetch`: (true)/false
+    * true will use an alternate method to get past the `We are unable to serve your request` error
+    * false won't use this method and you may get the error again
+
  - `PreventImperson`: (false)/true
     * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
     * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__

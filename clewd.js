@@ -8,9 +8,11 @@ const {createServer: Server, IncomingMessage, ServerResponse} = require('node:ht
 
 const {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto');
 
-const {TransformStream} = require('node:stream/web');
+const {TransformStream, ReadableStream} = require('node:stream/web');
 
 const {Readable, Writable} = require('node:stream');
+
+const {Blob} = require('node:buffer');
 
 const FS = require('node:fs');
 
@@ -20,6 +22,8 @@ const { config } = require('node:process');
 const Decoder = new TextDecoder;
 
 const Encoder = new TextEncoder;
+
+let CycleTLS;
 
 let ChangedSettings;
 
@@ -32,14 +36,14 @@ const ConfigPath = Path.join(__dirname, './config.js');
 const LogPath = Path.join(__dirname, './log.txt');
 
 const Replacements = {
-    user: 'Human: ',
-    assistant: 'Assistant: ',
+    user: 'Human',
+    assistant: 'Assistant',
     system: '',
-    example_user: 'H: ',
-    example_assistant: 'A: '
+    example_user: 'H',
+    example_assistant: 'A'
 };
 
-const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...':', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
 
 const Conversation = {
     char: null,
@@ -186,13 +190,14 @@ const AddxmlPlot = (content) => {
         padtxt: true,
         xmlPlot: true,
         localtunnel: false,       
-        VPNfree: false
+        VPNfree: true,
+        Superfetch: false
     },
     PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
     ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
 
-const Main = 'clewd v3.4修改版 by tera';
+const Main = 'clewd v3.7修改版 by tera';
 /******************************************************* */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
@@ -211,9 +216,9 @@ Array.prototype.sample = function() {
 
 const AI = {
     end: () => Config.Settings.VPNfree ? Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 104, 97, 116, 46, 99, 108, 97, 117, 100, 101, 97, 105, 46, 97, 105 ]).toString() : Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
-    modelA: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
-    modelB: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 105, 110, 115, 116, 97, 110, 116, 45, 49 ]).toString(),
-    agent: () => JSON.parse(Buffer.from([ 91, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 53, 46, 48, 46, 49, 57, 48, 49, 46, 49, 56, 56, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 59, 32, 114, 118, 58, 49, 48, 57, 46, 48, 41, 32, 71, 101, 99, 107, 111, 47, 50, 48, 49, 48, 48, 49, 48, 49, 32, 70, 105, 114, 101, 102, 111, 120, 47, 49, 49, 54, 46, 48, 34, 44, 34, 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 87, 105, 110, 100, 111, 119, 115, 32, 78, 84, 32, 49, 48, 46, 48, 59, 32, 87, 105, 110, 54, 52, 59, 32, 120, 54, 52, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 53, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 79, 80, 82, 47, 49, 48, 50, 46, 48, 46, 48, 46, 48, 34, 93 ]).toString()).sample(),
+    mdl: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
+    cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
+    agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 77, 97, 99, 105, 110, 116, 111, 115, 104, 59, 32, 73, 110, 116, 101, 108, 32, 77, 97, 99, 32, 79, 83, 32, 88, 32, 49, 48, 95, 49, 53, 95, 55, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString(),
     hdr: () => ({
         'Content-Type': 'application/json',
         Referer: AI.end() + '/',
@@ -242,8 +247,13 @@ const bytesToSize = (bytes = 0) => {
 
 const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
 
-const updateCookies = cookieInfo => {
-    let cookieNew = cookieInfo instanceof Response ? cookieInfo.headers?.get('set-cookie') : cookieInfo.split('\n').join('');
+const updateParams = res => {
+    updateCookies(res);
+};
+
+const updateCookies = res => {
+    let cookieNew = '';
+    cookieNew = res instanceof Response ? res.headers?.get('set-cookie') : res.superfetch ? res?.headers?.['Set-Cookie']?.join(';') : res.split('\n').join('');
     if (!cookieNew) {
         return;
     }
@@ -256,7 +266,39 @@ const updateCookies = cookieInfo => {
     }
 };
 
-const getCookies = () => Object.keys(cookies).map((name => `${name}=${cookies[name]};`)).join(' ').replace(/(\s+)$/gi, '');
+const getCookies = () => {
+    const cookieNames = Object.keys(cookies);
+    return cookieNames.map(((name, idx) => `${name}=${cookies[name]}${idx === cookieNames.length - 1 ? '' : ';'}`)).join(' ').replace(/(\s+)$/gi, '');
+};
+
+const superfetch = async params => {
+    let res = {};
+    const cycle = await CycleTLS();
+    let options = {
+        headers: {
+            ...AI.hdr(),
+            ...params.headers && {
+                ...params.headers
+            }
+        },
+        ...params.body && {
+            body: 'string' != typeof params.body ? JSON.stringify(params.body) : params.body
+        },
+        userAgent: AI.agent(),
+        ja3: AI.cp(),
+        timeout: 160,
+        disableRedirect: true
+    };
+    try {
+        res = await cycle(params.url, options, params.method.toLowerCase());
+    } catch (err) {
+        console.error('Report this to the dev:\n%o', err);
+    } finally {
+        res.superfetch = true;
+        cycle.exit();
+    }
+    return res;
+};
 
 const deleteChat = async uuid => {
     if (!uuid) {
@@ -276,7 +318,7 @@ const deleteChat = async uuid => {
         },
         method: 'DELETE'
     });
-    updateCookies(res);
+    updateParams(res);
 };
 
 const setTitle = title => {
@@ -288,7 +330,7 @@ const onListen = async () => {
 /***************************** */
     if (Firstlogin) {
         Firstlogin = false;   
-        console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);    
+        console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
         if (Config.Settings.localtunnel) {
             const localtunnel = require('localtunnel');
             localtunnel({ port: Config.Port })
@@ -301,15 +343,18 @@ const onListen = async () => {
         currentIndex = (currentIndex + 1) % Config.CookieArray.length;
         Config.Cookie = Config.CookieArray[currentIndex];
     }
-/**************************** */    
+/***************************** */
+    CycleTLS = Config.Settings.Superfetch ? require('cycletls') : null;
+
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
+    updateCookies(Config.Cookie);
     const accRes = await fetch(AI.end() + '/api/organizations', {
         method: 'GET',
         headers: {
             ...AI.hdr(),
-            Cookie: Config.Cookie
+            Cookie: getCookies()
         }
     });
     const accInfo = (await accRes.json())?.[0];
@@ -327,10 +372,9 @@ const onListen = async () => {
         throw Error('Invalid account id');
     }
     setTitle('ok');
-    updateCookies(Config.Cookie);
-    updateCookies(accRes);
+    updateParams(accRes);
     await checkResErr(accRes);
-    //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);            
+    //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
         capabilities: accInfo.capabilities
@@ -360,7 +404,7 @@ const onListen = async () => {
                 },
                 method: 'POST'
             });
-            updateCookies(req);
+            updateParams(req);
             const json = await req.json();
             console.log(`${type}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag.type))));
@@ -376,34 +420,36 @@ const onListen = async () => {
         }
     });
     const conversations = await convRes.json();
-    updateCookies(convRes);
+    updateParams(convRes);
     conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
 };
 
 const checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
-        err.planned = true;
         try {
-            const json = await res.json();
-            if (json.error) {
-                if (json.error.message.includes('read-only mode')) {
+            const json = res.superfetch ? res.body : await res.json();
+            const {error} = json;
+            if (error) {
+                err.planned = true;
+                error.message && (err.message = error.message);
+                error.type && (err.type = error.type);
+/************************** */
+                if (error.message.includes('read-only mode')) {
                     Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                     writeSettings(Config);
                     CookieChanger.emit('ChangeCookie');
                 }
-                else if (json.error.message.includes('Exceeded completions limit')) {
+                else if (error.message.includes('Exceeded completions limit')) {
                     CookieChanger.emit('ChangeCookie');
                 }
-            }
-            const {error: errAPI} = json;
-            if (errAPI) {
-                errAPI.message && (err.message = errAPI.message);
-                errAPI.type && (err.type = errAPI.type);
-                if (429 === res.status && errAPI.resets_at) {
-                    const hours = ((new Date(1e3 * errAPI.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
+/************************** */
+                if (429 === res.status && error.resets_at) {
+                    const hours = ((new Date(1e3 * error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
                     err.message += `, expires in ${hours} hours`;
                 }
+            } else {
+                res.superfetch && (err.message = json);
             }
         } catch (err) {}
         throw Error(err);
@@ -411,7 +457,7 @@ const checkResErr = async res => {
 };
 
 class ClewdStream extends TransformStream {
-    constructor(minSize = 8, modelName = AI.modelA(), streaming, abortController) {
+    constructor(minSize = 8, modelName = AI.mdl(), streaming, abortController) {
         super({
             transform: (chunk, controller) => {
                 this.#handle(chunk, controller);
@@ -483,7 +529,7 @@ class ClewdStream extends TransformStream {
         330 === this.#recvLength && (this.#hardCensor = true);
         if (this.#streaming) {
             this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
-            controller.enqueue('[DONE]');
+            controller.enqueue('data: [DONE]\n\n');
         } else {
             controller.enqueue(this.#build(this.#compAll.join('')));
         }
@@ -513,7 +559,7 @@ class ClewdStream extends TransformStream {
                 const selection = reply.substring(0, fakeAny);
                 console.warn(`[33mimpersonation, dropped:[0m "[4m${reply.substring(fakeAny, reply.length).replace(/\n/g, '\\n')}[0m..."`);
                 controller.enqueue(this.#build(selection));
-                this.#streaming && controller.enqueue('[DONE]');
+                this.#streaming && controller.enqueue('data: [DONE]\n\n');
                 this.#print();
                 this.#abortController.abort();
                 return controller.terminate();
@@ -526,10 +572,9 @@ class ClewdStream extends TransformStream {
         try {
             parsed = JSON.parse(match);
             if (parsed.error) {
-                parsed.completion = `## ${Main}\n**${this.#modelName} error**:\n\`\`\`${JSON.stringify(parsed.error, null, 4)}\`\`\``;
-                console.warn('[31merr[0m');
+                parsed.completion = `## ${Main}\n**${AI.end()} error**:\n\n\`\`\`${JSON.stringify(parsed.error, null, 4)}\`\`\``;
+                console.warn('[31mwebsite err[0m');
             }
-            this.#compAll.push(parsed.completion);
             if (parsed.completion) {
                 parsed.completion = genericFixes(parsed.completion);
                 this.#compOK += parsed.completion;
@@ -551,6 +596,7 @@ class ClewdStream extends TransformStream {
         } catch (err) {}
     }
     #handle(chunk, controller) {
+        'string' == typeof chunk && (chunk = Encoder.encode(chunk));
         this.#recvLength += chunk.byteLength || 0;
         chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
         this.#compRaw += chunk;
@@ -583,7 +629,7 @@ const Proxy = Server((async (req, res) => {
       case '/v1/models':
         res.json({
             data: [ {
-                id: AI.modelA()
+                id: AI.mdl()
             } ]
         });
         break;
@@ -641,7 +687,7 @@ const Proxy = Server((async (req, res) => {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
                         throw Error('Only one can be used at the same time: AllSamples/NoSamples');
                     }
-                    const model = AI.modelA();
+                    const model = AI.mdl();
                     curPrompt = {
                         firstUser: messages.find((message => 'user' === message.role)),
                         firstSystem: messages.find((message => 'system' === message.role)),
@@ -669,25 +715,36 @@ const Proxy = Server((async (req, res) => {
                     if (retryRegen) {
                         type = 'R';
                         fetchAPI = await (async (signal, body, model) => {
-                            const res = await fetch(AI.end() + '/api/retry_message', {
+                            let res;
+                            const json = {
+                                completion: {
+                                    prompt: '',
+                                    timezone: 'America/New_York',
+                                    model
+                                },
+                                organization_uuid: uuidOrg,
+                                conversation_uuid: Conversation.uuid,
+                                text: ''
+                            };
+                            res = Config.Settings.Superfetch ? await superfetch({
+                                url: AI.end() + '/api/retry_message',
+                                method: 'POST',
+                                body: json,
+                                headers: {
+                                    Accept: 'text/event-stream',
+                                    Cookie: getCookies(),
+                                    'User-Agent': AI.agent()
+                                }
+                            }) : await fetch(AI.end() + '/api/retry_message', {
                                 signal,
                                 headers: {
                                     ...AI.hdr(),
                                     Cookie: getCookies()
                                 },
                                 method: 'POST',
-                                body: JSON.stringify({
-                                    completion: {
-                                        prompt: '',
-                                        timezone: 'America/New_York',
-                                        model
-                                    },
-                                    organization_uuid: uuidOrg,
-                                    conversation_uuid: Conversation.uuid,
-                                    text: ''
-                                })
+                                body: JSON.stringify(json)
                             });
-                            updateCookies(res);
+                            updateParams(res);
                             await checkResErr(res);
                             return res;
                         })(signal, 0, model);
@@ -708,7 +765,7 @@ const Proxy = Server((async (req, res) => {
                                     name: ''
                                 })
                             });
-                            updateCookies(res);
+                            updateParams(res);
                             await checkResErr(res);
                             return res;
                         })(signal);
@@ -728,10 +785,11 @@ const Proxy = Server((async (req, res) => {
                         const rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i;
                         const messagesClone = JSON.parse(JSON.stringify(messages));
                         const realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role)));
-                        const sampleLogs = messagesClone.filter((message => [ 'example_user', 'example_assistant' ].includes(message.name)));
+                        const sampleLogs = messagesClone.filter((message => message.name));
                         const mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
                             const next = realLogs[idx + 1];
+                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && message.name && !(message.name in Replacements))(message);
                             if (next) {
                                 if (message.name && next.name && message.name === next.name) {
                                     message.content += '\n' + next.content;
@@ -763,26 +821,24 @@ const Proxy = Server((async (req, res) => {
                         }));
                         Config.Settings.AllSamples && !Config.Settings.NoSamples && realLogs.forEach((message => {
                             if ('user' === message.role) {
-                                message.name = 'example_user';
+                                message.name = message.customname ? message.name : 'example_user';
                                 message.role = 'system';
-                            } else {
-                                if ('assistant' !== message.role) {
-                                    throw Error('Invalid role ' + message.role);
-                                }
-                                message.name = 'example_assistant';
+                            } else if ('assistant' === message.role) {
+                                message.name = message.customname ? message.name : 'example_assistant';
                                 message.role = 'system';
+                            } else if (!message.customname) {
+                                throw Error('Invalid role ' + message.name);
                             }
                         }));
                         Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleLogs.forEach((message => {
                             if ('example_user' === message.name) {
                                 message.role = 'user';
-                            } else {
-                                if ('example_assistant' !== message.name) {
-                                    throw Error('Invalid role ' + message.name);
-                                }
+                            } else if ('example_assistant' === message.name) {
                                 message.role = 'assistant';
+                            } else if (!message.customname) {
+                                throw Error('Invalid role ' + message.name);
                             }
-                            delete message.name;
+                            message.customname || delete message.name;
                         }));
                         let systems = [];
                         if (![ 'r', 'R' ].includes(type)) {
@@ -800,7 +856,8 @@ const Proxy = Server((async (req, res) => {
                             }
                             let spacing = '';
                             idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
-                            return `${spacing}${message.strip ? '' : Replacements[message.name || message.role]}${message.content.trim()}`;
+                            const prefix = message.customname ? message.name + ': ' : 'system' !== message.role || message.name ? Replacements[message.name || message.role] + ': ' : '' + Replacements[message.role];
+                            return `${spacing}${message.strip ? '' : prefix}${message.content.trim()}`;
                         }));
                         return {
                             prompt: genericFixes(prompt.join('')).trim(),
@@ -808,11 +865,13 @@ const Proxy = Server((async (req, res) => {
                         };
                     })(messages, type);
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
+                    'R' !== type || prompt || (prompt = '...regen...');
+                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
 /****************************************************************/
                     if (Config.Settings.xmlPlot) {prompt = AddxmlPlot(prompt)};
                     if (Config.Settings.FullColon) {prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：')};
                     if (Config.Settings.padtxt) {prompt = padJson(prompt)};
-/****************************************************************/
+/****************************************************************/                    
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiments) {
@@ -824,38 +883,60 @@ const Proxy = Server((async (req, res) => {
                             });
                             prompt = '';
                         }
-                        const res = await fetch(AI.end() + '/api/append_message', {
+                        let res;
+                        const json = {
+                            completion: {
+                                ...Config.Settings.PassParams && {
+                                    temperature
+                                },
+                                prompt,
+                                timezone: 'America/New_York',
+                                model
+                            },
+                            organization_uuid: uuidOrg,
+                            conversation_uuid: Conversation.uuid,
+                            text: prompt,
+                            attachments
+                        };
+                        res = Config.Settings.Superfetch ? await superfetch({
+                            url: AI.end() + '/api/append_message',
+                            method: 'POST',
+                            body: json,
+                            headers: {
+                                Accept: 'text/event-stream',
+                                Cookie: getCookies(),
+                                'User-Agent': AI.agent()
+                            }
+                        }) : await fetch(AI.end() + '/api/append_message', {
                             signal,
+                            method: 'POST',
+                            body: JSON.stringify(json),
                             headers: {
                                 ...AI.hdr(),
-                                Cookie: getCookies()
-                            },
-                            method: 'POST',
-                            body: JSON.stringify({
-                                completion: {
-                                    ...Config.Settings.PassParams && {
-                                        temperature
-                                    },
-                                    prompt,
-                                    timezone: 'Europe/London',
-                                    model
-                                },
-                                organization_uuid: uuidOrg,
-                                conversation_uuid: Conversation.uuid,
-                                text: prompt,
-                                attachments
-                            })
+                                Accept: 'text/event-stream',
+                                Cookie: getCookies(),
+                                'User-Agent': AI.agent()
+                            }
                         });
-                        updateCookies(res);
+                        updateParams(res);
                         await checkResErr(res);
                         return res;
                     })(signal, 0, model, prompt, temperature));
                     const response = Writable.toWeb(res);
-                    'R' !== type || prompt || (prompt = '...regen...');
-                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
                     clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
-                    titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
-                    await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    if (Config.Settings.Superfetch) {
+                        const superStream = new ReadableStream({
+                            start(controller) {
+                                fetchAPI.body.split('\n').filter((message => '\n' !== message)).forEach((message => controller.enqueue(message)));
+                                controller.close();
+                            }
+                        });
+                        await superStream.pipeThrough(clewdStream).pipeTo(response);
+                        setTitle('ok ' + bytesToSize(clewdStream.size));
+                    } else {
+                        titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
+                        await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    }
                 } catch (err) {
                     if ('AbortError' === err.name) {
                         return res.end();
@@ -870,7 +951,7 @@ const Proxy = Server((async (req, res) => {
                         }
                     });
                 } finally {
-                    clearInterval(titleTimer);
+                    Config.Settings.Superfetch || clearInterval(titleTimer);
                     if (clewdStream) {
                         clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                         prevImpersonated = clewdStream.impersonated;
