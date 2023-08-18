@@ -103,7 +103,7 @@ const padJson = (json) => {
         const bytes = randomInt(5, 15);
         var placeholder = randomBytes(bytes).toString('hex');
     }
-    var count = Math.floor((20000 - simpletokenizer(json)) / simpletokenizer(placeholder)); 
+    var count = Math.floor((2 * Config.Settings.padtxt - simpletokenizer(json)) / simpletokenizer(placeholder)); 
 
     // 生成占位符字符串
     var padding = '';
@@ -166,7 +166,8 @@ const AddxmlPlot = (content) => {
     //消除空XML tags或多余的\n
     content = content.replace(/(?<=\n<(card|hidden|example)>\n)\s*/g, '');
     content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
-    content = content.replace(/\n\n<(example|hidden)>\n<\/\1>/g, '');
+    content = content.replace(/\n<(example|hidden)>\n<\/\1>/g, '');
+    content = content.replace(/<hidden>/g, '\n<hidden>');
 
     return content
 };
@@ -198,7 +199,7 @@ const AddxmlPlot = (content) => {
         PreserveChats: true,
         LogMessages: true,
         FullColon: true,
-        padtxt: true,
+        padtxt: 10000,
         xmlPlot: true,
         localtunnel: false,       
         VPNfree: true,
@@ -294,11 +295,11 @@ const superfetch = async params => {
         },
         ...params.body && {
             body: 'string' != typeof params.body ? JSON.stringify(params.body) : params.body
-        },
+        },   
         userAgent: AI.agent(),
         ja3: AI.cp(),
         timeout: 160,
-        disableRedirect: true
+        disableRedirect: true        
     };
     try {
         res = await cycle(params.url, options, params.method.toLowerCase());

@@ -16,7 +16,7 @@
 
 [原版Clewd](https://gitgud.io/ahsk/clewd) 
 
-[Clewd教程](https://rentry.org/teralomaniac_clewd) 
+[Clewd教程（必读）](https://rentry.org/teralomaniac_clewd) 
 <br>
 <br>
 <hr>
