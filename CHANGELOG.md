@@ -12,9 +12,28 @@
 </a>
 </div>
 
+# 3.8
+> **Superfetch** reworked
+
+dropped old js files in favor of custom-made ones
+
+i believe firewalls may block the binaries from connecting to port 443
+
+also, you should see "superfetch-load *{PATH}*" followed by "superfetch-spawn"
+
+> **SuperfetchTimeout** added
+
+controls how much time in seconds until it times out
+
+default 120
+
+> **Minor changes**
+
+new binaries for windows/linux/mac/arm/freebsd
+
 # 3.7
 
-using custom library to see if termux works
+<s>using custom library to see if termux works</s> 
 
 # 3.6
 > ### **Superfetch** added (defaults true)

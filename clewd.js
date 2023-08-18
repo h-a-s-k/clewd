@@ -23,7 +23,7 @@ const Decoder = new TextDecoder;
 
 const Encoder = new TextEncoder;
 
-let CycleTLS;
+let Superfetch = null;
 
 let ChangedSettings;
 
@@ -184,6 +184,7 @@ const AddxmlPlot = (content) => {
     BufferSize: 1,
     SystemInterval: 3,
     padtxt_placeholder: '',
+    SuperfetchTimeout: 120,
     Settings: {
         PreventImperson: false,
         PromptExperiments: true,
@@ -209,7 +210,7 @@ const AddxmlPlot = (content) => {
     ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
 
-const Main = 'clewd v3.7修改版 by tera';
+const Main = 'clewd v3.8修改版 by tera';
 /******************************************************* */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
@@ -229,8 +230,9 @@ Array.prototype.sample = function() {
 const AI = {
     end: () => Config.Settings.VPNfree ? Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 104, 97, 116, 46, 99, 108, 97, 117, 100, 101, 97, 105, 46, 97, 105 ]).toString() : Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
     mdl: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
-    cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
+    zone: () => Buffer.from([ 65, 109, 101, 114, 105, 99, 97, 47, 78, 101, 119, 95, 89, 111, 114, 107 ]).toString(),
     agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 77, 97, 99, 105, 110, 116, 111, 115, 104, 59, 32, 73, 110, 116, 101, 108, 32, 77, 97, 99, 32, 79, 83, 32, 88, 32, 49, 48, 95, 49, 53, 95, 55, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString(),
+    cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
     hdr: () => ({
         'Content-Type': 'application/json',
         Referer: AI.end() + '/',
@@ -265,7 +267,7 @@ const updateParams = res => {
 
 const updateCookies = res => {
     let cookieNew = '';
-    cookieNew = res instanceof Response ? res.headers?.get('set-cookie') : res.superfetch ? res?.headers?.['Set-Cookie']?.join(';') : res.split('\n').join('');
+    res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res?.superfetch ? cookieNew = res.headers?.['Set-Cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
     if (!cookieNew) {
         return;
     }
@@ -285,8 +287,9 @@ const getCookies = () => {
 
 const superfetch = async params => {
     let res = {};
-    const cycle = await CycleTLS();
-    let options = {
+    const options = {
+        url: params.url,
+        method: params.method,
         headers: {
             ...AI.hdr(),
             ...params.headers && {
@@ -298,17 +301,16 @@ const superfetch = async params => {
         },   
         userAgent: AI.agent(),
         ja3: AI.cp(),
-        timeout: 160,
-        disableRedirect: true        
+        timeout: Config.SuperfetchTimeout,
+        disableRedirect: true
     };
     try {
-        res = await cycle(params.url, options, params.method.toLowerCase());
+        const {response} = await Superfetch.request(options);
+        res = response;
     } catch (err) {
         console.error('Report this to the dev:\n%o', err);
-    } finally {
-        res.superfetch = true;
-        cycle.exit();
     }
+    res.superfetch = true;
     return res;
 };
 
@@ -355,8 +357,7 @@ const onListen = async () => {
         currentIndex = (currentIndex + 1) % Config.CookieArray.length;
         Config.Cookie = Config.CookieArray[currentIndex];
     }
-/***************************** */
-    CycleTLS = Config.Settings.Superfetch ? require('cycletls') : null;
+/***************************** */    
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
@@ -439,8 +440,18 @@ const checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
         try {
-            const json = res.superfetch ? res.body : await res.json();
-            const {error} = json;
+            let json;
+            let error;
+            if (res.superfetch) {
+                error = {
+                    message: res.body,
+                    ...res
+                };
+                delete error.body;
+            } else {
+                json = await res.json();
+                error = json.error;
+            }
             if (error) {
                 err.planned = true;
                 error.message && (err.message = error.message);
@@ -459,8 +470,6 @@ const checkResErr = async res => {
                     const hours = ((new Date(1e3 * error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
                     err.message += `, expires in ${hours} hours`;
                 }
-            } else {
-                res.superfetch && (err.message = json);
             }
         } catch (err) {}
         throw Error(err);
@@ -621,7 +630,7 @@ class ClewdStream extends TransformStream {
 const writeSettings = async (config, firstRun = false) => {
     FS.writeFileSync(ConfigPath, `/*\n* https://rentry.org/teralomaniac_clewd\n* https://github.com/teralomaniac/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval\n * How many messages until \`SystemExperiments alternates\`\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * and\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
     if (firstRun) {
-        console.warn('[33mConfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
+        console.warn('[33mconfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
         process.exit(0);
     }
 };
@@ -730,7 +739,7 @@ const Proxy = Server((async (req, res) => {
                             const json = {
                                 completion: {
                                     prompt: '',
-                                    timezone: 'America/New_York',
+                                    timezone: AI.zone(),
                                     model
                                 },
                                 organization_uuid: uuidOrg,
@@ -901,7 +910,7 @@ const Proxy = Server((async (req, res) => {
                                     temperature
                                 },
                                 prompt,
-                                timezone: 'America/New_York',
+                                timezone: AI.zone(),
                                 model
                             },
                             organization_uuid: uuidOrg,
@@ -1051,6 +1060,8 @@ const Proxy = Server((async (req, res) => {
 /***************************** */
     })();
     currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
+    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch')) : null;
+    Superfetch?.init();
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
@@ -1062,8 +1073,12 @@ process.on('SIGINT', (async () => {
     try {
         await deleteChat(Conversation.uuid);
         Logger?.close();
-    } catch (err) {}
-    process.exit(0);
+        Superfetch?.exit((() => {
+            process.exit();
+        }));
+    } catch (err) {
+        process.exit();
+    }
 }));
 
 process.on('exit', (async () => {
