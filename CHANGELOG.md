@@ -12,8 +12,36 @@
 </a>
 </div>
 
+# 3.7
+
+using custom library to see if termux works
+
+# 3.6
+> ### **Superfetch** added (defaults true)
+
+if set to true, will use an alternate method to get past the *"We are unable to serve your request"* error
+
+if set to false it's the old clewd behavior (if you don't struggle with that error you can keep it on false)
+
+> **Streaming changes**
+
+both streaming on/off working
+
+> **RetryRegen** changed
+
+now also works with Superfetch
+
+> **Minor changes**
+
+error handling for Superfetch (can't do much)
+
+support name prefixes for group chats when "Add character names" is enabled
+
+> if you were having trouble with 3.5 but 3.1 or 3.4 were fine, update to this and enable/disable **Superfetch** as you see fit
+
 # 3.5
 > **Streaming changes**
+
 fixed the dreaded bug, shit is unstable don't expect much
 
 keep streaming enabled for now
@@ -24,6 +52,7 @@ lastly, fuck you rats ;)
 
 # 3.4
 > **Streaming changes**
+
 turns out I could've fixed the broken formatting long ago, should work great now
 
 > Prompt conversion and **SystemExperiments** reworked

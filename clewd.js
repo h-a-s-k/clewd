@@ -23,7 +23,7 @@ const Decoder = new TextDecoder;
 
 const Encoder = new TextEncoder;
 
-const CycleTLS = require('cycletls');
+let CycleTLS;
 
 let ChangedSettings;
 
@@ -36,14 +36,14 @@ const ConfigPath = Path.join(__dirname, './config.js');
 const LogPath = Path.join(__dirname, './log.txt');
 
 const Replacements = {
-    user: 'Human: ',
-    assistant: 'Assistant: ',
+    user: 'Human',
+    assistant: 'Assistant',
     system: '',
-    example_user: 'H: ',
-    example_assistant: 'A: '
+    example_user: 'H',
+    example_assistant: 'A'
 };
 
-const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...':', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
 
 const Conversation = {
     char: null,
@@ -184,6 +184,7 @@ const AddxmlPlot = (content) => {
         ClearFlags: true,
         PreserveChats: true,
         LogMessages: true,
+        Superfetch: true,
         FullColon: true,
         padtxt: true,
         xmlPlot: true,
@@ -194,7 +195,7 @@ const AddxmlPlot = (content) => {
     ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
 };
 
-const Main = 'clewd v3.5修改版 by tera';
+const Main = 'clewd v3.7修改版 by tera';
 /******************************************************* */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
@@ -250,7 +251,7 @@ const updateParams = res => {
 
 const updateCookies = res => {
     let cookieNew = '';
-    cookieNew = res instanceof Response ? res.headers?.get('set-cookie') : res.superfetch ? res.headers['Set-Cookie'].join(';') : res.split('\n').join('');
+    cookieNew = res instanceof Response ? res.headers?.get('set-cookie') : res.superfetch ? res?.headers?.['Set-Cookie']?.join(';') : res.split('\n').join('');
     if (!cookieNew) {
         return;
     }
@@ -266,6 +267,35 @@ const updateCookies = res => {
 const getCookies = () => {
     const cookieNames = Object.keys(cookies);
     return cookieNames.map(((name, idx) => `${name}=${cookies[name]}${idx === cookieNames.length - 1 ? '' : ';'}`)).join(' ').replace(/(\s+)$/gi, '');
+};
+
+const superfetch = async params => {
+    let res = {};
+    const cycle = await CycleTLS();
+    let options = {
+        headers: {
+            ...AI.hdr(),
+            ...params.headers && {
+                ...params.headers
+            }
+        },
+        ...params.body && {
+            body: 'string' != typeof params.body ? JSON.stringify(params.body) : params.body
+        },
+        userAgent: AI.agent(),
+        ja3: AI.cp(),
+        timeout: 160,
+        disableRedirect: true
+    };
+    try {
+        res = await cycle(params.url, options, params.method.toLowerCase());
+    } catch (err) {
+        console.error('Report this to the dev:\n%o', err);
+    } finally {
+        res.superfetch = true;
+        cycle.exit();
+    }
+    return res;
 };
 
 const deleteChat = async uuid => {
@@ -312,14 +342,16 @@ const onListen = async () => {
         Config.Cookie = Config.CookieArray[currentIndex];
     }
 /***************************** */
+    CycleTLS = Config.Settings.Superfetch ? require('cycletls') : null;
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
+    updateCookies(Config.Cookie);
     const accRes = await fetch(AI.end() + '/api/organizations', {
         method: 'GET',
         headers: {
             ...AI.hdr(),
-            Cookie: Config.Cookie
+            Cookie: getCookies()
         }
     });
     const accInfo = (await accRes.json())?.[0];
@@ -337,7 +369,6 @@ const onListen = async () => {
         throw Error('Invalid account id');
     }
     setTitle('ok');
-    updateCookies(Config.Cookie);
     updateParams(accRes);
     await checkResErr(accRes);
     //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
@@ -394,26 +425,28 @@ const checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
         try {
-            const json = await res.json();
-            if (json.error) {
-                if (json.error.message.includes('read-only mode')) {
+            const json = res.superfetch ? res.body : await res.json();
+            const {error} = json;
+            if (error) {
+                err.planned = true;
+                error.message && (err.message = error.message);
+                error.type && (err.type = error.type);
+/************************** */
+                if (error.message.includes('read-only mode')) {
                     Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                     writeSettings(Config);
                     CookieChanger.emit('ChangeCookie');
                 }
-                else if (json.error.message.includes('Exceeded completions limit')) {
+                else if (error.message.includes('Exceeded completions limit')) {
                     CookieChanger.emit('ChangeCookie');
                 }
-            }
-            const {error: errAPI} = json;
-            if (errAPI) {
-                err.planned = true;
-                errAPI.message && (err.message = errAPI.message);
-                errAPI.type && (err.type = errAPI.type);
-                if (429 === res.status && errAPI.resets_at) {
-                    const hours = ((new Date(1e3 * errAPI.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
+/************************** */
+                if (429 === res.status && error.resets_at) {
+                    const hours = ((new Date(1e3 * error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
                     err.message += `, expires in ${hours} hours`;
                 }
+            } else {
+                res.superfetch && (err.message = json);
             }
         } catch (err) {}
         throw Error(err);
@@ -493,7 +526,7 @@ class ClewdStream extends TransformStream {
         330 === this.#recvLength && (this.#hardCensor = true);
         if (this.#streaming) {
             this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
-            controller.enqueue('[DONE]');
+            controller.enqueue('data: [DONE]\n\n');
         } else {
             controller.enqueue(this.#build(this.#compAll.join('')));
         }
@@ -523,7 +556,7 @@ class ClewdStream extends TransformStream {
                 const selection = reply.substring(0, fakeAny);
                 console.warn(`[33mimpersonation, dropped:[0m "[4m${reply.substring(fakeAny, reply.length).replace(/\n/g, '\\n')}[0m..."`);
                 controller.enqueue(this.#build(selection));
-                this.#streaming && controller.enqueue('[DONE]');
+                this.#streaming && controller.enqueue('data: [DONE]\n\n');
                 this.#print();
                 this.#abortController.abort();
                 return controller.terminate();
@@ -536,10 +569,9 @@ class ClewdStream extends TransformStream {
         try {
             parsed = JSON.parse(match);
             if (parsed.error) {
-                parsed.completion = `## ${Main}\n**${this.#modelName} error**:\n\`\`\`${JSON.stringify(parsed.error, null, 4)}\`\`\``;
-                console.warn('[31merr[0m');
+                parsed.completion = `## ${Main}\n**${AI.end()} error**:\n\n\`\`\`${JSON.stringify(parsed.error, null, 4)}\`\`\``;
+                console.warn('[31mwebsite err[0m');
             }
-            this.#compAll.push(parsed.completion);
             if (parsed.completion) {
                 parsed.completion = genericFixes(parsed.completion);
                 this.#compOK += parsed.completion;
@@ -614,6 +646,7 @@ const Proxy = Server((async (req, res) => {
             }));
             req.on('end', (async () => {
                 let clewdStream;
+                let titleTimer;
                 let samePrompt = false;
                 let shouldRenew = true;
                 let retryRegen = false;
@@ -679,23 +712,34 @@ const Proxy = Server((async (req, res) => {
                     if (retryRegen) {
                         type = 'R';
                         fetchAPI = await (async (signal, body, model) => {
-                            const res = await fetch(AI.end() + '/api/retry_message', {
+                            let res;
+                            const json = {
+                                completion: {
+                                    prompt: '',
+                                    timezone: 'America/New_York',
+                                    model
+                                },
+                                organization_uuid: uuidOrg,
+                                conversation_uuid: Conversation.uuid,
+                                text: ''
+                            };
+                            res = Config.Settings.Superfetch ? await superfetch({
+                                url: AI.end() + '/api/retry_message',
+                                method: 'POST',
+                                body: json,
+                                headers: {
+                                    Accept: 'text/event-stream',
+                                    Cookie: getCookies(),
+                                    'User-Agent': AI.agent()
+                                }
+                            }) : await fetch(AI.end() + '/api/retry_message', {
                                 signal,
                                 headers: {
                                     ...AI.hdr(),
                                     Cookie: getCookies()
                                 },
                                 method: 'POST',
-                                body: JSON.stringify({
-                                    completion: {
-                                        prompt: '',
-                                        timezone: 'America/New_York',
-                                        model
-                                    },
-                                    organization_uuid: uuidOrg,
-                                    conversation_uuid: Conversation.uuid,
-                                    text: ''
-                                })
+                                body: JSON.stringify(json)
                             });
                             updateParams(res);
                             await checkResErr(res);
@@ -738,10 +782,11 @@ const Proxy = Server((async (req, res) => {
                         const rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i;
                         const messagesClone = JSON.parse(JSON.stringify(messages));
                         const realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role)));
-                        const sampleLogs = messagesClone.filter((message => [ 'example_user', 'example_assistant' ].includes(message.name)));
+                        const sampleLogs = messagesClone.filter((message => message.name));
                         const mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
                             const next = realLogs[idx + 1];
+                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && message.name && !(message.name in Replacements))(message);
                             if (next) {
                                 if (message.name && next.name && message.name === next.name) {
                                     message.content += '\n' + next.content;
@@ -773,26 +818,24 @@ const Proxy = Server((async (req, res) => {
                         }));
                         Config.Settings.AllSamples && !Config.Settings.NoSamples && realLogs.forEach((message => {
                             if ('user' === message.role) {
-                                message.name = 'example_user';
+                                message.name = message.customname ? message.name : 'example_user';
                                 message.role = 'system';
-                            } else {
-                                if ('assistant' !== message.role) {
-                                    throw Error('Invalid role ' + message.role);
-                                }
-                                message.name = 'example_assistant';
+                            } else if ('assistant' === message.role) {
+                                message.name = message.customname ? message.name : 'example_assistant';
                                 message.role = 'system';
+                            } else if (!message.customname) {
+                                throw Error('Invalid role ' + message.name);
                             }
                         }));
                         Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleLogs.forEach((message => {
                             if ('example_user' === message.name) {
                                 message.role = 'user';
-                            } else {
-                                if ('example_assistant' !== message.name) {
-                                    throw Error('Invalid role ' + message.name);
-                                }
+                            } else if ('example_assistant' === message.name) {
                                 message.role = 'assistant';
+                            } else if (!message.customname) {
+                                throw Error('Invalid role ' + message.name);
                             }
-                            delete message.name;
+                            message.customname || delete message.name;
                         }));
                         let systems = [];
                         if (![ 'r', 'R' ].includes(type)) {
@@ -810,7 +853,8 @@ const Proxy = Server((async (req, res) => {
                             }
                             let spacing = '';
                             idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
-                            return `${spacing}${message.strip ? '' : Replacements[message.name || message.role]}${message.content.trim()}`;
+                            const prefix = message.customname ? message.name + ': ' : 'system' !== message.role || message.name ? Replacements[message.name || message.role] + ': ' : '' + Replacements[message.role];
+                            return `${spacing}${message.strip ? '' : prefix}${message.content.trim()}`;
                         }));
                         return {
                             prompt: genericFixes(prompt.join('')).trim(),
@@ -818,11 +862,13 @@ const Proxy = Server((async (req, res) => {
                         };
                     })(messages, type);
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
+                    'R' !== type || prompt || (prompt = '...regen...');
+                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
 /****************************************************************/
                     if (Config.Settings.xmlPlot) {prompt = AddxmlPlot(prompt)};
                     if (Config.Settings.FullColon) {prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：')};
                     if (Config.Settings.padtxt) {prompt = padJson(prompt)};
-/****************************************************************/
+/****************************************************************/                    
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiments) {
@@ -834,45 +880,36 @@ const Proxy = Server((async (req, res) => {
                             });
                             prompt = '';
                         }
-                        const res = await (async params => {
-                            const cycle = await CycleTLS();
-                            let options = {
-                                headers: {
-                                    ...AI.hdr(),
-                                    ...params.headers && {
-                                        ...params.headers
-                                    }
+                        let res;
+                        const json = {
+                            completion: {
+                                ...Config.Settings.PassParams && {
+                                    temperature
                                 },
-                                ...params.body && {
-                                    body: 'string' != typeof params.body ? JSON.stringify(params.body) : params.body
-                                },
-                                userAgent: AI.agent(),
-                                ja3: AI.cp(),
-                                timeout: 120,
-                                disableRedirect: true
-                            };
-                            const res = await cycle(params.url, options, params.method.toLowerCase());
-                            res.superfetch = true;
-                            cycle.exit();
-                            return res;
-                        })({
+                                prompt,
+                                timezone: 'America/New_York',
+                                model
+                            },
+                            organization_uuid: uuidOrg,
+                            conversation_uuid: Conversation.uuid,
+                            text: prompt,
+                            attachments
+                        };
+                        res = Config.Settings.Superfetch ? await superfetch({
                             url: AI.end() + '/api/append_message',
                             method: 'POST',
-                            body: {
-                                completion: {
-                                    ...Config.Settings.PassParams && {
-                                        temperature
-                                    },
-                                    prompt,
-                                    timezone: 'America/New_York',
-                                    model
-                                },
-                                organization_uuid: uuidOrg,
-                                conversation_uuid: Conversation.uuid,
-                                text: prompt,
-                                attachments
-                            },
+                            body: json,
                             headers: {
+                                Accept: 'text/event-stream',
+                                Cookie: getCookies(),
+                                'User-Agent': AI.agent()
+                            }
+                        }) : await fetch(AI.end() + '/api/append_message', {
+                            signal,
+                            method: 'POST',
+                            body: JSON.stringify(json),
+                            headers: {
+                                ...AI.hdr(),
                                 Accept: 'text/event-stream',
                                 Cookie: getCookies(),
                                 'User-Agent': AI.agent()
@@ -880,22 +917,23 @@ const Proxy = Server((async (req, res) => {
                         });
                         updateParams(res);
                         await checkResErr(res);
-                        updateParams(res);
-                        await checkResErr(res);
                         return res;
-                    })(0, 0, model, prompt, temperature));
+                    })(signal, 0, model, prompt, temperature));
                     const response = Writable.toWeb(res);
-                    'R' !== type || prompt || (prompt = '...regen...');
-                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
-                    const superStream = new ReadableStream({
-                        start(controller) {
-                            fetchAPI.body.split('\n').filter((message => '\n' !== message)).forEach((message => controller.enqueue(message)));
-                            controller.close();
-                        }
-                    });
-                    setTitle('ok ' + bytesToSize(Encoder.encode(fetchAPI.body).byteLength));
-                    clewdStream = new ClewdStream(Config.BufferSize, model, true, controller);
-                    await superStream.pipeThrough(clewdStream).pipeTo(response);
+                    clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
+                    if (Config.Settings.Superfetch) {
+                        const superStream = new ReadableStream({
+                            start(controller) {
+                                fetchAPI.body.split('\n').filter((message => '\n' !== message)).forEach((message => controller.enqueue(message)));
+                                controller.close();
+                            }
+                        });
+                        await superStream.pipeThrough(clewdStream).pipeTo(response);
+                        setTitle('ok ' + bytesToSize(clewdStream.size));
+                    } else {
+                        titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
+                        await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    }
                 } catch (err) {
                     if ('AbortError' === err.name) {
                         return res.end();
@@ -910,6 +948,7 @@ const Proxy = Server((async (req, res) => {
                         }
                     });
                 } finally {
+                    Config.Settings.Superfetch || clearInterval(titleTimer);
                     if (clewdStream) {
                         clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                         prevImpersonated = clewdStream.impersonated;
