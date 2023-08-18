@@ -899,11 +899,14 @@ const Proxy = Server((async (req, res) => {
 process.on('SIGINT', (async () => {
     console.log('cleaning...');
     try {
-        Superfetch?.exit();
         await deleteChat(Conversation.uuid);
         Logger?.close();
-    } catch (err) {}
-    process.exit(0);
+        Superfetch?.exit((() => {
+            process.exit();
+        }));
+    } catch (err) {
+        process.exit();
+    }
 }));
 
 process.on('exit', (async () => {
