@@ -80,6 +80,21 @@ CookieChanger.on('ChangeCookie', () => {
     }));
 });
 
+const simpletokenizer = (str) => {
+    let byteLength = 0;
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code <= 0xFF) {
+            byteLength += 1;
+        } else if (code <= 0xFFFF) {
+            byteLength += 2;
+        } else {
+            byteLength += 3;
+        }
+    }
+    return byteLength;
+}
+
 const padJson = (json) => {
     if (Config.padtxt_placeholder.length > 0){
         var placeholder = Config.padtxt_placeholder;
@@ -88,11 +103,7 @@ const padJson = (json) => {
         const bytes = randomInt(5, 15);
         var placeholder = randomBytes(bytes).toString('hex');
     }
-    
-    var sizeInBytes = new Blob([json]).size; // 计算json数据的字节大小
-
-    // 计算需要添加的占位符数量, 注意你需要注意到UTF-8编码中中文字符占3字节
-    var count = Math.floor((32000 - sizeInBytes) / new Blob([placeholder]).size); 
+    var count = Math.floor((20000 - simpletokenizer(json)) / simpletokenizer(placeholder)); 
 
     // 生成占位符字符串
     var padding = '';
@@ -345,7 +356,6 @@ const onListen = async () => {
     }
 /***************************** */
     CycleTLS = Config.Settings.Superfetch ? require('cycletls') : null;
-
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
@@ -866,12 +876,12 @@ const Proxy = Server((async (req, res) => {
                     })(messages, type);
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     'R' !== type || prompt || (prompt = '...regen...');
-                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
 /****************************************************************/
                     if (Config.Settings.xmlPlot) {prompt = AddxmlPlot(prompt)};
                     if (Config.Settings.FullColon) {prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：')};
                     if (Config.Settings.padtxt) {prompt = padJson(prompt)};
-/****************************************************************/                    
+/****************************************************************/
+                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);                
                     retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiments) {
