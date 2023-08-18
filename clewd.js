@@ -345,6 +345,7 @@ const onListen = async () => {
     }
 /***************************** */
     CycleTLS = Config.Settings.Superfetch ? require('cycletls') : null;
+
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
