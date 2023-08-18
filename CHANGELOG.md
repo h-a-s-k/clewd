@@ -12,9 +12,24 @@
 </a>
 </div>
 
+# 3.8
+> **Superfetch** reworked
+
+dropped old js files in favor of custom-made ones
+
+> **SuperfetchTimeout** added
+
+controls how much time in seconds until it times out
+
+default 120
+
+> **Minor changes**
+
+new binaries for windows/linux/mac/arm/freebsd
+
 # 3.7
 
-using custom library to see if termux works
+<s>using custom library to see if termux works</s> 
 
 # 3.6
 > ### **Superfetch** added (defaults true)

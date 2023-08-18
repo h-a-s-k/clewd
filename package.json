@@ -1,13 +1,14 @@
 {
   "name": "clewd",
-  "version": "3.7",
+  "version": "3.8",
   "description": ":^)",
   "main": "clewd.js",
   "engines": {
     "node": ">=20.4.0"
   },
   "scripts": {
-    "run": "node clewd.js"
+    "run": "node clewd.js",
+	"postinstall": "npm update && npm i clewd-superfetch"
   },
   "keywords": [
     "doom",
@@ -24,7 +25,6 @@
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
   "dependencies": {
-    "cycletls": "github:h-a-s-k/CycleTLS"
-  },
-  "devDependencies": {}
+    "clewd-superfetch": "github:h-a-s-k/clewd-superfetch"
+  }
 }

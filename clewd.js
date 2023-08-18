@@ -22,7 +22,7 @@ const Decoder = new TextDecoder;
 
 const Encoder = new TextEncoder;
 
-let CycleTLS;
+let Superfetch = null;
 
 let ChangedSettings;
 
@@ -72,6 +72,7 @@ let uuidOrg;
     Port: 8444,
     BufferSize: 8,
     SystemInterval: 3,
+    SuperfetchTimeout: 120,
     Settings: {
         PreventImperson: false,
         PromptExperiments: true,
@@ -111,8 +112,9 @@ Array.prototype.sample = function() {
 const AI = {
     end: () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
     mdl: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
-    cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
+    zone: () => Buffer.from([ 65, 109, 101, 114, 105, 99, 97, 47, 78, 101, 119, 95, 89, 111, 114, 107 ]).toString(),
     agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 77, 97, 99, 105, 110, 116, 111, 115, 104, 59, 32, 73, 110, 116, 101, 108, 32, 77, 97, 99, 32, 79, 83, 32, 88, 32, 49, 48, 95, 49, 53, 95, 55, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString(),
+    cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
     hdr: () => ({
         'Content-Type': 'application/json',
         Referer: AI.end() + '/',
@@ -147,7 +149,7 @@ const updateParams = res => {
 
 const updateCookies = res => {
     let cookieNew = '';
-    cookieNew = res instanceof Response ? res.headers?.get('set-cookie') : res.superfetch ? res?.headers?.['Set-Cookie']?.join(';') : res.split('\n').join('');
+    res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res?.superfetch ? cookieNew = res.headers?.['Set-Cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
     if (!cookieNew) {
         return;
     }
@@ -167,8 +169,9 @@ const getCookies = () => {
 
 const superfetch = async params => {
     let res = {};
-    const cycle = await CycleTLS();
-    let options = {
+    const options = {
+        url: params.url,
+        method: params.method,
         headers: {
             ...AI.hdr(),
             ...params.headers && {
@@ -180,17 +183,16 @@ const superfetch = async params => {
         },
         userAgent: AI.agent(),
         ja3: AI.cp(),
-        timeout: 160,
+        timeout: Config.SuperfetchTimeout,
         disableRedirect: true
     };
     try {
-        res = await cycle(params.url, options, params.method.toLowerCase());
+        const {response} = await Superfetch.request(options);
+        res = response;
     } catch (err) {
         console.error('Report this to the dev:\n%o', err);
-    } finally {
-        res.superfetch = true;
-        cycle.exit();
     }
+    res.superfetch = true;
     return res;
 };
 
@@ -221,7 +223,6 @@ const setTitle = title => {
 };
 
 const onListen = async () => {
-    CycleTLS = Config.Settings.Superfetch ? require('cycletls') : null;
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
@@ -294,8 +295,18 @@ const checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
         try {
-            const json = res.superfetch ? res.body : await res.json();
-            const {error} = json;
+            let json;
+            let error;
+            if (res.superfetch) {
+                error = {
+                    message: res.body,
+                    ...res
+                };
+                delete error.body;
+            } else {
+                json = await res.json();
+                error = json.error;
+            }
             if (error) {
                 err.planned = true;
                 error.message && (err.message = error.message);
@@ -304,8 +315,6 @@ const checkResErr = async res => {
                     const hours = ((new Date(1e3 * error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
                     err.message += `, expires in ${hours} hours`;
                 }
-            } else {
-                res.superfetch && (err.message = json);
             }
         } catch (err) {}
         throw Error(err);
@@ -575,7 +584,7 @@ const Proxy = Server((async (req, res) => {
                             const json = {
                                 completion: {
                                     prompt: '',
-                                    timezone: 'America/New_York',
+                                    timezone: AI.zone(),
                                     model
                                 },
                                 organization_uuid: uuidOrg,
@@ -741,7 +750,7 @@ const Proxy = Server((async (req, res) => {
                                     temperature
                                 },
                                 prompt,
-                                timezone: 'America/New_York',
+                                timezone: AI.zone(),
                                 model
                             },
                             organization_uuid: uuidOrg,
@@ -879,6 +888,8 @@ const Proxy = Server((async (req, res) => {
             writeSettings(Config, true);
         }
     })();
+    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch')) : null;
+    Superfetch?.init();
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
@@ -888,6 +899,7 @@ const Proxy = Server((async (req, res) => {
 process.on('SIGINT', (async () => {
     console.log('cleaning...');
     try {
+        Superfetch?.exit();
         await deleteChat(Conversation.uuid);
         Logger?.close();
     } catch (err) {}
