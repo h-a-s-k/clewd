@@ -13,6 +13,8 @@ GOTO:missgit
 
 
 :pull
+call git config --local url."https://".insteadOf git://
+call git config --local url."https://github.com/".insteadOf git@github.com:
 call git config --local url."https://".insteadOf ssh://
 call git pull --rebase --autostash
 if %ERRORLEVEL% neq 0 (
