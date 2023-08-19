@@ -167,7 +167,6 @@ const AddxmlPlot = (content) => {
     content = content.replace(/(?<=\n<(card|hidden|example)>\n)\s*/g, '');
     content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
     content = content.replace(/\n<(example|hidden)>\n<\/\1>/g, '');
-    content = content.replace(/<hidden>/g, '\n<hidden>');
 
     return content
 };
@@ -883,7 +882,8 @@ const Proxy = Server((async (req, res) => {
                                 return message.content;
                             }
                             let spacing = '';
-                            idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
+                            //idx > 0 && (spacing = systemMessages.includes(message) ? '\n\n' : '\n\n');
+                            idx > 0 && (spacing = '\n\n');
                             const prefix = message.customname ? message.name + ': ' : 'system' !== message.role || message.name ? Replacements[message.name || message.role] + ': ' : '' + Replacements[message.role];
                             return `${spacing}${message.strip ? '' : prefix}${message.content.trim()}`;
                         }));
