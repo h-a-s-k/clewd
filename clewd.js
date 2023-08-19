@@ -202,7 +202,7 @@ const AddxmlPlot = (content) => {
         FullColon: true,
         padtxt: 15000,
         xmlPlot: true,
-        localtunnel: false,       
+        localtunnel: false,
         Superfetch: false
     },
     PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
