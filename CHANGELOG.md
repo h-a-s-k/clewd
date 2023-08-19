@@ -12,6 +12,14 @@
 </a>
 </div>
 
+# 3.8.5
+
+fixed memory leak on clewd-superfetch
+
+added support for custom host/port for superfetch in case you want
+
+better cleaning up so it is less likely orphan superfetch processes will remain
+
 # 3.8
 > **Superfetch** reworked
 
