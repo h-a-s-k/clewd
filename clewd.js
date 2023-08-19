@@ -85,7 +85,7 @@ const simpletokenizer = (str) => {
     for (let i = 0; i < str.length; i++) {
         let code = str.charCodeAt(i);
         if (code <= 0xFF) {
-            byteLength += 0.8;
+            byteLength += 0.6;
         } else if (code <= 0xFFFF) {
             byteLength += 1;
         } else {
