@@ -85,11 +85,11 @@ const simpletokenizer = (str) => {
     for (let i = 0; i < str.length; i++) {
         let code = str.charCodeAt(i);
         if (code <= 0xFF) {
-            byteLength += 1;
+            byteLength += 0.8;
         } else if (code <= 0xFFFF) {
-            byteLength += 2;
+            byteLength += 1;
         } else {
-            byteLength += 3;
+            byteLength += 1.5;
         }
     }
     return byteLength;
@@ -103,7 +103,7 @@ const padJson = (json) => {
         const bytes = randomInt(5, 15);
         var placeholder = randomBytes(bytes).toString('hex');
     }
-    var count = Math.floor((2 * Config.Settings.padtxt - simpletokenizer(json)) / simpletokenizer(placeholder)); 
+    var count = Math.floor((Config.Settings.padtxt - simpletokenizer(json)) / simpletokenizer(placeholder)); 
 
     // 生成占位符字符串
     var padding = '';
@@ -200,7 +200,7 @@ const AddxmlPlot = (content) => {
         PreserveChats: true,
         LogMessages: true,
         FullColon: true,
-        padtxt: 10000,
+        padtxt: 15000,
         xmlPlot: true,
         localtunnel: false,       
         VPNfree: true,
