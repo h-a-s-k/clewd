@@ -184,13 +184,14 @@ const AddxmlPlot = (content) => {
     BufferSize: 1,
     SystemInterval: 3,
     padtxt_placeholder: '',
-    SuperfetchTimeout: 120,
+    PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
+    ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}',
     Settings: {
-        PreventImperson: false,
-        PromptExperiments: true,
-        RetryRegenerate: false,
         RenewAlways: true,
+        RetryRegenerate: false,
+        PromptExperiments: true,
         SystemExperiments: true,
+        PreventImperson: false,
         AllSamples: false,
         NoSamples: false,
         StripAssistant: false,
@@ -205,11 +206,14 @@ const AddxmlPlot = (content) => {
         localtunnel: false,
         Superfetch: false
     },
-    PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
-    ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}'
+    SuperfetchHost: 'localhost',
+    SuperfetchPort: 8443,
+    SuperfetchTimeout: 120
 };
 
-const Main = 'clewd v3.8修改版 by tera';
+const {version: Version} = require('./package.json');
+
+const Main = 'clewd v' + Version + '修改版 by tera';
 /******************************************************* */
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
@@ -362,7 +366,10 @@ const onListen = async () => {
     }
     updateCookies(Config.Cookie);
     //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
-    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch')) : null;
+    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch'))({
+        host: Config.SuperfetchHost,
+        port: Config.SuperfetchPort
+    }) : null;
     Superfetch?.init();
     const accRes = await fetch(AI.end() + '/api/organizations', {
         method: 'GET',
@@ -1067,7 +1074,7 @@ const Proxy = Server((async (req, res) => {
     }));
 }();
 
-process.on('SIGINT', (async () => {
+const cleanup = async () => {
     console.log('cleaning...');
     try {
         await deleteChat(Conversation.uuid);
@@ -1078,7 +1085,13 @@ process.on('SIGINT', (async () => {
     } catch (err) {
         process.exit();
     }
-}));
+};
+
+process.on('SIGHUP', cleanup);
+
+process.on('SIGTERM', cleanup);
+
+process.on('SIGINT', cleanup);
 
 process.on('exit', (async () => {
     console.log('exiting...');
