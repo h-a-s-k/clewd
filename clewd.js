@@ -200,7 +200,7 @@ const AddxmlPlot = (content) => {
         PreserveChats: true,
         LogMessages: true,
         FullColon: true,
-        padtxt: 15000,
+        padtxt: 13500,
         xmlPlot: true,
         localtunnel: false,
         Superfetch: false
