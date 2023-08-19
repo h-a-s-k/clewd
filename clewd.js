@@ -362,6 +362,9 @@ const onListen = async () => {
         throw Error('Set your cookie inside config.js');
     }
     updateCookies(Config.Cookie);
+    //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
+    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch')) : null;
+    Superfetch?.init();
     const accRes = await fetch(AI.end() + '/api/organizations', {
         method: 'GET',
         headers: {
@@ -386,7 +389,6 @@ const onListen = async () => {
     setTitle('ok');
     updateParams(accRes);
     await checkResErr(accRes);
-    //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
         capabilities: accInfo.capabilities
@@ -1060,8 +1062,6 @@ const Proxy = Server((async (req, res) => {
 /***************************** */
     })();
     currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
-    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch')) : null;
-    Superfetch?.init();
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
