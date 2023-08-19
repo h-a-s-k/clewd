@@ -27,7 +27,9 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
 ## Requirements
 
-nodejs>=20.4.*
+- nodejs>=20.4.*
+
+- git>=2.41.*
 
 ## Defaults
 
