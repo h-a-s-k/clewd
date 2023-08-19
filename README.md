@@ -28,7 +28,9 @@
 
 ## Requirements
 
-nodejs>=20.4.*
+- [nodejs>=20.4.*](https://nodejs.org/en/download/current)
+
+- [git>=2.41.*](https://gitforwindows.org/)
 
 ## Defaults
 
