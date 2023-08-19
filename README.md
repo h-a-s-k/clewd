@@ -12,12 +12,11 @@
 
 </a>
 
-<br>
-
-[原版Clewd](https://gitgud.io/ahsk/clewd) 
+[原版Clewd](https://gitgud.io/ahsk/clewd)
 
 [Clewd教程（必读）](https://rentry.org/teralomaniac_clewd) 
-<br>
+
+Clewd修改版及教程禁止转发任何包含收费项目的群组/论坛或用于收费项目
 <br>
 <hr>
 <a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
