@@ -146,7 +146,7 @@ const AddxmlPlot = (content) => {
         }
     }
   
-    let sexMatch = content.match(/\n##.*?\n<sex>[\s\S]*?<\/sex>\n/);
+    let sexMatch = content.match(/\n##.*?\n<(sex|behavior)>[\s\S]*?<\/\1>\n/);
     let processMatch = content.match(/\n##.*?\n<process>[\s\S]*?<\/process>\n/);
   
     if (sexMatch && processMatch) {
