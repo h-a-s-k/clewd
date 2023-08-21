@@ -1,6 +1,6 @@
 {
   "name": "clewd",
-  "version": "3.8.5",
+  "version": "4.0",
   "description": ":^)",
   "main": "clewd.js",
   "engines": {
@@ -24,7 +24,5 @@
   "bugs": {
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
-  "dependencies": {
-    "clewd-superfetch": "github:h-a-s-k/clewd-superfetch"
-  }
+  "dependencies": {}
 }
