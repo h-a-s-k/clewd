@@ -1,10 +1,7 @@
 @echo off
 pushd %~dp0
 
-echo This will only work if you cloned the repo instead of downloading
-pause
-
-if not exist .git\ (
+if not exist .git (
   GOTO:notgit
 )
 
@@ -16,6 +13,9 @@ GOTO:missgit
 
 
 :pull
+call git config --local url."https://".insteadOf git://
+call git config --local url."https://github.com/".insteadOf git@github.com:
+call git config --local url."https://".insteadOf ssh://
 call git pull --rebase --autostash
 if %ERRORLEVEL% neq 0 (
   echo Error updating

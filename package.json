@@ -1,20 +1,33 @@
 {
   "name": "clewd",
-  "version": "3.7",
+  "version": "3.8.5",
   "description": ":^)",
   "main": "clewd.js",
   "engines": {
     "node": ">=20.4.0"
   },
   "scripts": {
-    "run": "node clewd.js"
+    "run": "node clewd.js",
+    "postinstall": "npm update && npm i clewd-superfetch"
   },
   "keywords": [
     "doom",
     "coom"
   ],
-  "author": { "name": "ahsk", "url": "https://gitgud.io/ahsk" },
-  "contributors": [{ "name": "ahsk", "url": "https://gitgud.io/ahsk" }, { "name": "h-a-s-k", "url": "https://github.com/h-a-s-k" }],
+  "author": {
+    "name": "ahsk",
+    "url": "https://gitgud.io/ahsk"
+  },
+  "contributors": [
+    {
+      "name": "ahsk",
+      "url": "https://gitgud.io/ahsk"
+    },
+    {
+      "name": "h-a-s-k",
+      "url": "https://github.com/h-a-s-k"
+    }
+  ],
   "homepage": "https://rentry.org/teralomaniac_clewd",
   "repository": {
     "type": "git",
@@ -24,8 +37,7 @@
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
   "dependencies": {
-    "cycletls": "github:h-a-s-k/CycleTLS",
+    "clewd-superfetch": "github:h-a-s-k/clewd-superfetch",
     "localtunnel": "^2.0.2"
-  },
-  "devDependencies": {}
+  }
 }

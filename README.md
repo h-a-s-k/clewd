@@ -12,15 +12,14 @@
 
 </a>
 
-<br>
+[原版Clewd](https://gitgud.io/ahsk/clewd)
 
-[原版Clewd](https://gitgud.io/ahsk/clewd) 
+[Clewd教程（必读）](https://rentry.org/teralomaniac_clewd) 
 
-[Clewd教程](https://rentry.org/teralomaniac_clewd) 
-<br>
+Clewd修改版及教程禁止转发任何包含收费项目的群组/论坛或用于收费项目
 <br>
 <hr>
-<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
+<a>
    <img src="https://gitgud.io/ahsk/clewd/-/raw/master/media/program.png">
 </a>
 <h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md">CHANGELOG</a></h2>
@@ -28,7 +27,9 @@
 
 ## Requirements
 
-nodejs>=20.4.*
+- [nodejs>=20.4.*](https://nodejs.org/en/download/current)
+
+- [git>=2.41.*](https://gitforwindows.org/)
 
 ## Defaults
 
