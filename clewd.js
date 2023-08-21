@@ -304,8 +304,13 @@ const superfetch = async params => {
         },   
         userAgent: AI.agent(),
         ja3: AI.cp(),
+<<<<<<< Updated upstream
         timeout: Config.SuperfetchTimeout,
         disableRedirect: true
+=======
+        timeout: 160,
+        disableRedirect: true,
+>>>>>>> Stashed changes
     };
     try {
         const {response} = await Superfetch.request(options);
