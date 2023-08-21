@@ -39,8 +39,7 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
         PreserveChats: false,
         LogMessages: false,
         Superfetch: true
-    },
-    SuperfetchTimeout: 5
+    }
 };
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
@@ -276,7 +275,7 @@ const updateParams = res => {
                         }
                     };
                     samePrompt = JSON.stringify(messages.filter((message => 'system' !== message.role)).sort()) === JSON.stringify(prevMessages.filter((message => 'system' !== message.role)).sort());
-                    const sameCharDiffChat = !samePrompt && curPrompt.firstSystem?.content === prevPrompt.firstSystem?.content && curPrompt.firstUser.content !== prevPrompt.firstUser?.content;
+                    const sameCharDiffChat = !samePrompt && curPrompt.firstSystem?.content === prevPrompt.firstSystem?.content && curPrompt.firstUser?.content !== prevPrompt.firstUser?.content;
                     shouldRenew = Config.Settings.RenewAlways || !Conversation.uuid || prevImpersonated || !Config.Settings.RenewAlways && samePrompt || sameCharDiffChat;
                     retryRegen = Config.Settings.RetryRegenerate && samePrompt && null != Conversation.uuid;
                     samePrompt || (prevMessages = JSON.parse(JSON.stringify(messages)));
