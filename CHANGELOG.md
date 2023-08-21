@@ -16,9 +16,14 @@
 
 possible fix for "Received no valid replies at all" on >=20k ctx (tested 35k)
 
-**SuperfetchTimeout** removed
+> **SuperfetchTimeout** removed
 
 was only relevant to pre-4.0
+
+> **Hotfix 1**
+
+fixed another source of "Received no valid replies at all"
+
 
 # 4.2
 
