@@ -1,6 +1,6 @@
 <div align="center">
 <a href="https://gitgud.io/ahsk/clewd/">
-<h1>Clewd</h1>
+<h1>Clewd 3.8.5</h1>
   <img
     height="120"
     width="120"
@@ -19,10 +19,10 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 <br>
 <br>
 <hr>
-<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
+<a href="https://gitgud.io/ahsk/clewd/-/archive/3.8.5/clewd-3.8.5.zip">
    <img src="https://gitgud.io/ahsk/clewd/-/raw/master/media/program.png">
 </a>
-<h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md">CHANGELOG</a></h2>
+<h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md#anchor-385">CHANGELOG</a></h2>
 </div>
 
 ## Requirements
@@ -135,8 +135,6 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
 ## Downloads
 
-> ### [Download latest version](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
+> ### [Download latest version](https://gitgud.io/ahsk/clewd/)
 
-> ### [Download 2.7](https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip)
-
-> ### [Download 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
+> ### [Download 3.8.5](https://gitgud.io/ahsk/clewd/-/archive/3.8.5/clewd-3.8.5.zip)
