@@ -130,6 +130,7 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
     Port: process.env.PORT || 8444,
     BufferSize: 1,
     SystemInterval: 3,
+    rProxy: AI.end(),
     padtxt_placeholder: '',
     PromptExperimentFirst: '',
     PromptExperimentNext: '',
@@ -198,7 +199,7 @@ const updateParams = res => {
     if (Config.Settings.PreserveChats) {
         return;
     }
-    const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
+    const res = await fetch(`${Config.rProxy}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
         headers: {
             ...AI.hdr(),
             Cookie: getCookies()
@@ -230,7 +231,7 @@ const updateParams = res => {
     updateCookies(Config.Cookie);
     //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
     Config.Settings.Superfetch && SuperfetchAvailable(true);
-    const accRes = await fetch(AI.end() + '/api/organizations', {
+    const accRes = await fetch(Config.rProxy + '/api/organizations', {
         method: 'GET',
         headers: {
             ...AI.hdr(),
@@ -274,7 +275,7 @@ const updateParams = res => {
             if ('consumer_restricted_mode' === type) {
                 return;
             }
-            const req = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
+            const req = await fetch(`${Config.rProxy}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
                 headers: {
                     ...AI.hdr(),
                     Cookie: getCookies()
@@ -289,7 +290,7 @@ const updateParams = res => {
         CookieChanger.emit('ChangeCookie');
 /***************************** */
     }
-    const convRes = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+    const convRes = await fetch(`${Config.rProxy}/api/organizations/${uuidOrg}/chat_conversations`, {
         method: 'GET',
         headers: {
             ...AI.hdr(),
@@ -455,7 +456,7 @@ const updateParams = res => {
                                 const names = Object.keys(headers), values = Object.values(headers);
                                 headers = names.map(((header, idx) => `${header}: ${values[idx]}`));
                             }
-                            res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/retry_message', {
+                            res = await (Config.Settings.Superfetch ? Superfetch : fetch)(Config.rProxy + '/api/retry_message', {
                                 ...!Config.Settings.Superfetch && {
                                     signal
                                 },
@@ -472,7 +473,7 @@ const updateParams = res => {
                         fetchAPI = await (async signal => {
                             Conversation.uuid = randomUUID().toString();
                             Conversation.depth = 0;
-                            const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+                            const res = await fetch(`${Config.rProxy}/api/organizations/${uuidOrg}/chat_conversations`, {
                                 signal,
                                 headers: {
                                     ...AI.hdr(),
@@ -618,7 +619,7 @@ const updateParams = res => {
                             Cookie: getCookies()
                         };
                         const executor = Config.Settings.Superfetch ? Superfetch : fetch;
-                        res = await executor(AI.end() + '/api/append_message', {
+                        res = await executor(Config.rProxy + '/api/append_message', {
                             ...!Config.Settings.Superfetch && {
                                 signal
                             },
