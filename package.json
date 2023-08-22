@@ -1,14 +1,13 @@
 {
   "name": "clewd",
-  "version": "3.8.5",
+  "version": "4.3",
   "description": ":^)",
   "main": "clewd.js",
   "engines": {
     "node": ">=20.4.0"
   },
   "scripts": {
-    "run": "node clewd.js",
-    "postinstall": "npm update && npm i clewd-superfetch"
+    "run": "node clewd.js"
   },
   "keywords": [
     "doom",
@@ -36,8 +35,5 @@
   "bugs": {
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
-  "dependencies": {
-    "clewd-superfetch": "github:h-a-s-k/clewd-superfetch",
-    "localtunnel": "^2.0.2"
-  }
+  "dependencies": {"localtunnel": "^2.0.2"}
 }
