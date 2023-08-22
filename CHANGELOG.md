@@ -12,9 +12,13 @@
 </a>
 </div>
 
+# 4.4
+
+fixed another source of "Received no valid replies at all"
+
 # 4.3
 
-possible fix for "Received no valid replies at all" on >=20k ctx (tested 35k)
+a fix for "Received no valid replies at all" on >=20k ctx (tested 35k)
 
 > **SuperfetchTimeout** removed
 
