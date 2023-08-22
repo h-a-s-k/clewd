@@ -137,6 +137,6 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
 > ### [Download latest version](https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip)
 
-> ### [Download 2.7](https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip)
+> ### [Download 3.8.5](https://gitgud.io/ahsk/clewd/-/archive/3.8.5/clewd-3.8.5.zip)
 
-> ### [Download 1.6](https://gitgud.io/ahsk/clewd/-/archive/1.6/clewd-1.6.zip)
+> ### [Download 2.7](https://gitgud.io/ahsk/clewd/-/archive/2.7/clewd-2.7.zip)
