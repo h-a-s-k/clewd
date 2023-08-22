@@ -148,7 +148,7 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
         StripHuman: false,
         PassParams: false,
         ClearFlags: true,
-        PreserveChats: false,
+        PreserveChats: true,
         LogMessages: true,
         FullColon: true,
         padtxt: 13500,
@@ -739,7 +739,15 @@ const updateParams = res => {
         }
 /***************************** */
     })();
+/***************************** */    
+    if (!Config.rProxy) {
+        Config.rProxy = AI.end();
+    }
+    else {
+        Config.Settings.Superfetch = false;
+    }
     currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
+/***************************** */    
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
