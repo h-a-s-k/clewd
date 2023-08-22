@@ -7,7 +7,8 @@
     "node": ">=20.4.0"
   },
   "scripts": {
-    "run": "node clewd.js"
+    "run": "node clewd.js",
+	"postinstall": "npm update && npm i clewd-superfetch"
   },
   "keywords": [
     "doom",
