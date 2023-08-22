@@ -582,9 +582,9 @@ const updateParams = res => {
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     'R' !== type || prompt || (prompt = '...regen...');
 /****************************************************************/
-                    if (Config.Settings.xmlPlot) {prompt = AddxmlPlot(prompt)};
-                    if (Config.Settings.FullColon) {prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：')};
-                    if (Config.Settings.padtxt) {prompt = padJson(prompt)};
+                    Config.Settings.xmlPlot && (prompt = AddxmlPlot(prompt));
+                    Config.Settings.FullColon && (prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：'));
+                    Config.Settings.padtxt && (prompt = padJson(prompt));
 /****************************************************************/                    
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
                     retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature, type) => {
@@ -663,6 +663,13 @@ const updateParams = res => {
                         prevImpersonated = clewdStream.impersonated;
                         Config.Settings.Superfetch ? console.log('superfetch-end\n') : console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
                         setTitle('ok ' + bytesToSize(clewdStream.size));
+/******************************** */ 
+                        if (clewdStream.readonly) {
+                            Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
+                            writeSettings(Config);
+                        }
+                        clewdStream.cookiechange && CookieChanger.emit('ChangeCookie');
+/******************************** */                        
                         clewdStream.empty();
                     }
                     if (prevImpersonated) {
@@ -740,7 +747,7 @@ const updateParams = res => {
 /***************************** */
     })();
 /***************************** */    
-    if (!Config.rProxy) {Config.rProxy = AI.end();}
+    !Config.rProxy && (Config.rProxy = AI.end());
     currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
 /***************************** */    
     Proxy.listen(Config.Port, Config.Ip, onListen);
