@@ -459,7 +459,7 @@ const updateParams = res => {
                             Cookie: getCookies()
                         };
                         const executor = Config.Settings.Superfetch ? Superfetch : fetch;
-                        res = await executor(AI.end() + '/api/append_message', {
+                        res = await executor(AI.end() + '/a/append_message', {
                             ...!Config.Settings.Superfetch && {
                                 signal
                             },
