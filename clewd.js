@@ -627,8 +627,10 @@ const updateParams = res => {
                             body: JSON.stringify(body),
                             headers
                         });
-                        updateParams(res);
-                        await checkResErr(res);
+                        if (!Config.Settings.Superfetch) {
+                            updateParams(res);
+                            await checkResErr(res);
+                        }
                         return res;
                     })(signal, model, prompt, temperature, type));
                     const response = Writable.toWeb(res);
