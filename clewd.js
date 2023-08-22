@@ -740,12 +740,7 @@ const updateParams = res => {
 /***************************** */
     })();
 /***************************** */    
-    if (!Config.rProxy) {
-        Config.rProxy = AI.end();
-    }
-    else {
-        Config.Settings.Superfetch = false;
-    }
+    if (!Config.rProxy) {Config.rProxy = AI.end();}
     currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
 /***************************** */    
     Proxy.listen(Config.Port, Config.Ip, onListen);
