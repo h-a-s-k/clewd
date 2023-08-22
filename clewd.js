@@ -4,24 +4,76 @@
 */
 'use strict';
 
-const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync, writeFileSync, createWriteStream} = require('node:fs'), {join: joinP} = require('node:path'), {Superfetch, SuperfetchAvailable} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, Replacements, Main} = require('./lib/clewd-utils'), ClewdStream = require('./lib/clewd-stream');
+const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http');
 
-let ChangedSettings, UnknownSettings, Logger;
+const {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto');
 
-const ConfigPath = joinP(__dirname, './config.js'), LogPath = joinP(__dirname, './log.txt'), Conversation = {
+const {TransformStream, ReadableStream} = require('node:stream/web');
+
+const {Readable, Writable} = require('node:stream');
+
+const {Blob} = require('node:buffer');
+
+const FS = require('node:fs');
+
+const Path = require('node:path');
+
+const Decoder = new TextDecoder;
+
+const Encoder = new TextEncoder;
+
+let Superfetch = null;
+
+let ChangedSettings;
+
+let UnknownSettings;
+
+let Logger;
+
+const ConfigPath = Path.join(__dirname, './config.js');
+
+const LogPath = Path.join(__dirname, './log.txt');
+
+const Replacements = {
+    user: 'Human',
+    assistant: 'Assistant',
+    system: '',
+    example_user: 'H',
+    example_assistant: 'A'
+};
+
+const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...':', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
+
+const Conversation = {
     char: null,
     uuid: null,
     depth: 0
-}, cookies = {};
+};
 
-let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonated = false, Config = {
+const cookies = {};
+
+let curPrompt = {};
+
+let prevPrompt = {};
+
+let prevMessages = [];
+
+let prevImpersonated = false;
+
+let uuidOrg;
+
+/**
+ * Edit settings in your config.js instead
+ * these are the defaults and change every update
+ * @preserve
+ */ let Config = {
     Cookie: '',
     Ip: '127.0.0.1',
     Port: 8444,
     BufferSize: 8,
     SystemInterval: 3,
-    PersonalityFormat: '{{char}}\'s personality: {{personality}}',
-    ScenarioFormat: 'Dialogue scenario: {{scenario}}',
+    PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
+    ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}',
     Settings: {
         RenewAlways: true,
         RetryRegenerate: false,
@@ -38,8 +90,14 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
         LogMessages: false,
         Superfetch: true
     },
-    SuperfetchTimeout: 5
+    SuperfetchHost: 'localhost',
+    SuperfetchPort: 8443,
+    SuperfetchTimeout: 120
 };
+
+const {version: Version} = require('./package.json');
+
+const Main = 'clewd v' + Version;
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -55,9 +113,45 @@ Array.prototype.sample = function() {
     return this[Math.floor(Math.random() * this.length)];
 };
 
+const AI = {
+    end: () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
+    mdl: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50 ]).toString(),
+    zone: () => Buffer.from([ 65, 109, 101, 114, 105, 99, 97, 47, 78, 101, 119, 95, 89, 111, 114, 107 ]).toString(),
+    agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 77, 97, 99, 105, 110, 116, 111, 115, 104, 59, 32, 73, 110, 116, 101, 108, 32, 77, 97, 99, 32, 79, 83, 32, 88, 32, 49, 48, 95, 49, 53, 95, 55, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString(),
+    cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
+    hdr: () => ({
+        'Content-Type': 'application/json',
+        Referer: AI.end() + '/',
+        Origin: '' + AI.end()
+    })
+};
+
+const fileName = () => {
+    const len = randomInt(5, 15);
+    let name = randomBytes(len).toString('hex');
+    for (let i = 0; i < name.length; i++) {
+        const char = name.charAt(i);
+        isNaN(char) && randomInt(1, 5) % 2 == 0 && ' ' !== name.charAt(i - 1) && (name = name.slice(0, i) + ' ' + name.slice(i));
+    }
+    return name + '.txt';
+};
+
+const bytesToSize = (bytes = 0) => {
+    const b = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
+    if (0 === bytes) {
+        return '0 B';
+    }
+    const c = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 4);
+    return 0 === c ? `${bytes} ${b[c]}` : `${(bytes / 1024 ** c).toFixed(1)} ${b[c]}`;
+};
+
+const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
+
 const updateParams = res => {
     updateCookies(res);
-}, updateCookies = res => {
+};
+
+const updateCookies = res => {
     let cookieNew = '';
     res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res?.superfetch ? cookieNew = res.headers?.['Set-Cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
     if (!cookieNew) {
@@ -65,13 +159,48 @@ const updateParams = res => {
     }
     let cookieArr = cookieNew.split(/;\s?/gi).filter((prop => false === /^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*/i.test(prop)));
     for (const cookie of cookieArr) {
-        const divide = cookie.split(/^(.*?)=\s*(.*)/), cookieName = divide[1], cookieVal = divide[2];
+        const divide = cookie.split(/^(.*?)=\s*(.*)/);
+        const cookieName = divide[1];
+        const cookieVal = divide[2];
         cookies[cookieName] = cookieVal;
     }
-}, getCookies = () => {
+};
+
+const getCookies = () => {
     const cookieNames = Object.keys(cookies);
     return cookieNames.map(((name, idx) => `${name}=${cookies[name]}${idx === cookieNames.length - 1 ? '' : ';'}`)).join(' ').replace(/(\s+)$/gi, '');
-}, deleteChat = async uuid => {
+};
+
+const superfetch = async params => {
+    let res = {};
+    const options = {
+        url: params.url,
+        method: params.method,
+        headers: {
+            ...AI.hdr(),
+            ...params.headers && {
+                ...params.headers
+            }
+        },
+        ...params.body && {
+            body: 'string' != typeof params.body ? JSON.stringify(params.body) : params.body
+        },
+        userAgent: AI.agent(),
+        ja3: AI.cp(),
+        timeout: Config.SuperfetchTimeout,
+        disableRedirect: true
+    };
+    try {
+        const {response} = await Superfetch.request(options);
+        res = response;
+    } catch (err) {
+        console.error('Report this to the dev:\n%o', err);
+    }
+    res.superfetch = true;
+    return res;
+};
+
+const deleteChat = async uuid => {
     if (!uuid) {
         return;
     }
@@ -90,20 +219,32 @@ const updateParams = res => {
         method: 'DELETE'
     });
     updateParams(res);
-}, onListen = async () => {
+};
+
+const setTitle = title => {
+    title = `${Main} - ${title}`;
+    process.title !== title && (process.title = title);
+};
+
+const onListen = async () => {
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
     updateCookies(Config.Cookie);
     console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
-    Config.Settings.Superfetch && SuperfetchAvailable(true);
+    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch'))({
+        host: Config.SuperfetchHost,
+        port: Config.SuperfetchPort
+    }) : null;
+    Superfetch?.init();
     const accRes = await fetch(AI.end() + '/api/organizations', {
         method: 'GET',
         headers: {
             ...AI.hdr(),
             Cookie: getCookies()
         }
-    }), accInfo = (await accRes.json())?.[0];
+    });
+    const accInfo = (await accRes.json())?.[0];
     if (!accInfo || accInfo.error) {
         throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText}"`);
     }
@@ -119,7 +260,8 @@ const updateParams = res => {
     });
     uuidOrg = accInfo?.uuid;
     if (accInfo?.active_flags.length > 0) {
-        const now = new Date, formattedFlags = accInfo.active_flags.map((flag => {
+        const now = new Date;
+        const formattedFlags = accInfo.active_flags.map((flag => {
             const days = ((new Date(flag.expires_at).getTime() - now.getTime()) / 864e5).toFixed(2);
             return {
                 type: flag.type,
@@ -152,14 +294,18 @@ const updateParams = res => {
             ...AI.hdr(),
             Cookie: getCookies()
         }
-    }), conversations = await convRes.json();
+    });
+    const conversations = await convRes.json();
     updateParams(convRes);
     conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
-}, checkResErr = async res => {
+};
+
+const checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
         try {
-            let json, error;
+            let json;
+            let error;
             if (res.superfetch) {
                 error = {
                     message: res.body,
@@ -182,13 +328,168 @@ const updateParams = res => {
         } catch (err) {}
         throw Error(err);
     }
-}, writeSettings = async (config, firstRun = false) => {
-    writeFileSync(ConfigPath, `/*\n* https://gitgud.io/ahsk/clewd\n* https://github.com/h-a-s-k/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval\n * How many messages until \`SystemExperiments alternates\`\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * and\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
+};
+
+class ClewdStream extends TransformStream {
+    constructor(minSize = 8, modelName = AI.mdl(), streaming, abortController) {
+        super({
+            transform: (chunk, controller) => {
+                this.#handle(chunk, controller);
+            },
+            flush: controller => {
+                this.#done(controller);
+            }
+        });
+        this.#modelName = modelName;
+        this.#streaming = streaming;
+        this.#minSize = minSize;
+        this.#abortController = abortController;
+    }
+    #streaming=void 0;
+    #minSize=void 0;
+    #compOK='';
+    #compRaw='';
+    #abortController=void 0;
+    #modelName=void 0;
+    #compAll=[];
+    #recvLength=0;
+    #stopLoc=void 0;
+    #stopReason=void 0;
+    #hardCensor=false;
+    #impersonated=false;
+    get size() {
+        return this.#recvLength;
+    }
+    get total() {
+        return this.#compAll.length;
+    }
+    get censored() {
+        return this.#hardCensor;
+    }
+    get impersonated() {
+        return this.#impersonated;
+    }
+    empty() {
+        this.#compOK = this.#compRaw = '';
+        this.#compAll = [];
+        this.#recvLength = 0;
+    }
+    #collectBuf() {
+        const valid = [ ...this.#compOK ];
+        const selection = valid.splice(0, Math.min(this.#minSize, valid.length)).join('');
+        this.#compOK = valid.join('');
+        return selection;
+    }
+    #build(selection) {
+        Logger?.write(selection);
+        const completion = this.#streaming ? {
+            choices: [ {
+                delta: {
+                    content: genericFixes(selection)
+                }
+            } ]
+        } : {
+            choices: [ {
+                message: {
+                    content: genericFixes(selection)
+                }
+            } ]
+        };
+        return this.#streaming ? (completion => Encoder.encode(`data: ${JSON.stringify(completion)}\n\n`))(completion) : JSON.stringify(completion);
+    }
+    #print() {}
+    #done(controller) {
+        this.#print();
+        330 === this.#recvLength && (this.#hardCensor = true);
+        if (this.#streaming) {
+            this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
+            controller.enqueue('data: [DONE]\n\n');
+        } else {
+            controller.enqueue(this.#build(this.#compAll.join('')));
+        }
+    }
+    #impersonationCheck(reply, controller) {
+        const fakeAny = ((text, last = false) => {
+            let location = -1;
+            const fakeHuman = ((text, last = false) => {
+                let location = -1;
+                const matchesH = text.match(/(?:(?:\\n)|\n){2}((?:Human|H): ?)/gm);
+                matchesH?.length > 0 && (location = last ? text.lastIndexOf(matchesH[matchesH.length - 1]) : text.indexOf(matchesH[0]));
+                return location;
+            })(text, last);
+            const fakeAssistant = ((text, last = false) => {
+                let location = -1;
+                const matchesA = text.match(/(?:(?:\\n)|\n){2}((?:Assistant|A): ?)/gm);
+                matchesA?.length > 0 && (location = last ? text.lastIndexOf(matchesA[matchesA.length - 1]) : text.indexOf(matchesA[0]));
+                return location;
+            })(text, last);
+            const fakes = [ fakeHuman, fakeAssistant ].filter((idx => idx > -1)).sort();
+            location = last ? fakes.reverse()[0] : fakes[0];
+            return isNaN(location) ? -1 : location;
+        })(reply);
+        if (fakeAny > -1) {
+            this.#impersonated = true;
+            if (Config.Settings.PreventImperson) {
+                const selection = reply.substring(0, fakeAny);
+                console.warn(`[33mimpersonation, dropped:[0m "[4m${reply.substring(fakeAny, reply.length).replace(/\n/g, '\\n')}[0m..."`);
+                controller.enqueue(this.#build(selection));
+                this.#streaming && controller.enqueue('data: [DONE]\n\n');
+                this.#print();
+                this.#abortController.abort();
+                return controller.terminate();
+            }
+        }
+    }
+    #parseMatch(match, controller) {
+        let parsed;
+        let delayChunk;
+        try {
+            parsed = JSON.parse(match);
+            if (parsed.error) {
+                parsed.completion = `## ${Main}\n**${AI.end()} error**:\n\n\`\`\`${JSON.stringify(parsed.error, null, 4)}\`\`\``;
+                console.warn('[31mwebsite err[0m');
+            }
+            if (parsed.completion) {
+                parsed.completion = genericFixes(parsed.completion);
+                this.#compOK += parsed.completion;
+                this.#compRaw = '';
+                this.#compAll.push(parsed.completion);
+                delayChunk = DangerChars.some((char => this.#compOK.endsWith(char) || parsed.completion.startsWith(char)));
+            }
+            !this.#stopLoc && parsed.stop && (this.#stopLoc = parsed.stop.replace(/\n/g, '\\n'));
+            !this.#stopReason && parsed.stop_reason && (this.#stopReason = parsed.stop_reason);
+            if (this.#streaming) {
+                delayChunk && this.#impersonationCheck(this.#compOK, controller);
+                for (;!delayChunk && this.#compOK.length >= this.#minSize; ) {
+                    const selection = this.#collectBuf();
+                    controller.enqueue(this.#build(selection));
+                }
+            } else {
+                delayChunk && this.#impersonationCheck(this.#compAll.join(''), controller);
+            }
+        } catch (err) {}
+    }
+    #handle(chunk, controller) {
+        'string' == typeof chunk && (chunk = Encoder.encode(chunk));
+        this.#recvLength += chunk.byteLength || 0;
+        chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
+        this.#compRaw += chunk;
+        const matches = this.#compRaw.split(/(\n){1}/gm).filter((match => match.length > 0 && '\n' !== match));
+        for (const match of matches) {
+            this.#parseMatch(match, controller);
+        }
+    }
+}
+
+const writeSettings = async (config, firstRun = false) => {
+    FS.writeFileSync(ConfigPath, `/*\n* https://gitgud.io/ahsk/clewd\n* https://github.com/h-a-s-k/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval\n * How many messages until \`SystemExperiments alternates\`\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * and\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
     if (firstRun) {
         console.warn('[33mconfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
         process.exit(0);
     }
-}, Proxy = Server((async (req, res) => {
+};
+
+const Proxy = Server((async (req, res) => {
     if ('OPTIONS' === req.method) {
         return ((req, res) => {
             res.writeHead(200, {
@@ -211,18 +512,24 @@ const updateParams = res => {
         ((req, res) => {
             setTitle('recv...');
             let fetchAPI;
-            const abortControl = new AbortController, {signal} = abortControl;
+            const controller = new AbortController;
+            const {signal} = controller;
             res.socket.on('close', (async () => {
-                abortControl.signal.aborted || abortControl.abort();
+                controller.signal.aborted || controller.abort();
             }));
             const buffer = [];
             req.on('data', (chunk => {
                 buffer.push(chunk);
             }));
             req.on('end', (async () => {
-                let clewdStream, titleTimer, samePrompt = false, shouldRenew = true, retryRegen = false;
+                let clewdStream;
+                let titleTimer;
+                let samePrompt = false;
+                let shouldRenew = true;
+                let retryRegen = false;
                 try {
-                    const body = JSON.parse(Buffer.concat(buffer).toString()), temperature = Math.max(.1, Math.min(1, body.temperature));
+                    const body = JSON.parse(Buffer.concat(buffer).toString());
+                    const temperature = Math.max(.1, Math.min(1, body.temperature));
                     let {messages} = body;
                     if (messages?.length < 1) {
                         throw Error('Select OpenAI as completion source');
@@ -281,39 +588,40 @@ const updateParams = res => {
                     let type = '';
                     if (retryRegen) {
                         type = 'R';
-                        fetchAPI = await (async (signal, model) => {
+                        fetchAPI = await (async (signal, body, model) => {
                             let res;
-                            const body = {
+                            const json = {
                                 completion: {
                                     prompt: '',
                                     timezone: AI.zone(),
-                                    model: model || AI.mdl()
+                                    model
                                 },
                                 organization_uuid: uuidOrg,
                                 conversation_uuid: Conversation.uuid,
                                 text: ''
                             };
-                            let headers = {
-                                ...AI.hdr(Conversation.uuid || ''),
-                                Accept: 'text/event-stream',
-                                Cookie: getCookies()
-                            };
-                            if (Config.Settings.Superfetch) {
-                                const names = Object.keys(headers), values = Object.values(headers);
-                                headers = names.map(((header, idx) => `${header}: ${values[idx]}`));
-                            }
-                            res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/retry_message', {
-                                ...!Config.Settings.Superfetch && {
-                                    signal
+                            res = Config.Settings.Superfetch ? await superfetch({
+                                url: AI.end() + '/api/retry_message',
+                                method: 'POST',
+                                body: json,
+                                headers: {
+                                    Accept: 'text/event-stream',
+                                    Cookie: getCookies(),
+                                    'User-Agent': AI.agent()
+                                }
+                            }) : await fetch(AI.end() + '/api/retry_message', {
+                                signal,
+                                headers: {
+                                    ...AI.hdr(),
+                                    Cookie: getCookies()
                                 },
                                 method: 'POST',
-                                body: JSON.stringify(body),
-                                headers
+                                body: JSON.stringify(json)
                             });
                             updateParams(res);
                             await checkResErr(res);
                             return res;
-                        })(signal, model);
+                        })(signal, 0, model);
                     } else if (shouldRenew) {
                         Conversation.uuid && await deleteChat(Conversation.uuid);
                         fetchAPI = await (async signal => {
@@ -347,7 +655,12 @@ const updateParams = res => {
                         }
                     }
                     let {prompt, systems} = ((messages, type) => {
-                        const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i, rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i, messagesClone = JSON.parse(JSON.stringify(messages)), realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role))), sampleLogs = messagesClone.filter((message => message.name)), mergedLogs = [ ...sampleLogs, ...realLogs ];
+                        const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i;
+                        const rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i;
+                        const messagesClone = JSON.parse(JSON.stringify(messages));
+                        const realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role)));
+                        const sampleLogs = messagesClone.filter((message => message.name));
+                        const mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
                             const next = realLogs[idx + 1];
                             message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && message.name && !(message.name in Replacements))(message);
@@ -367,13 +680,14 @@ const updateParams = res => {
                         lastUser && Config.Settings.StripHuman && (lastUser.strip = true);
                         const systemMessages = messagesClone.filter((message => 'system' === message.role && !message.name));
                         systemMessages.forEach(((message, idx) => {
-                            const scenario = message.content.match(rgxScenario)?.[1], personality = message.content.match(rgxPerson);
+                            const scenario = message.content.match(rgxScenario)?.[1];
+                            const personality = message.content.match(rgxPerson);
                             if (scenario) {
-                                message.content = Config.ScenarioFormat.replace(/{{scenario}}/gim, scenario);
+                                message.content = Config.ScenarioFormat.replace(/{{SCENARIO}}/g, scenario);
                                 message.scenario = true;
                             }
                             if (3 === personality?.length) {
-                                message.content = Config.PersonalityFormat.replace(/{{char}}/gim, personality[1]).replace(/{{personality}}/gim, personality[2]);
+                                message.content = Config.PersonalityFormat.replace(/{{CHAR}}/gm, personality[1]).replace(/{{PERSONALITY}}/gm, personality[2]);
                                 message.personality = true;
                             }
                             message.main = 0 === idx;
@@ -427,7 +741,7 @@ const updateParams = res => {
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     'R' !== type || prompt || (prompt = '...regen...');
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
-                    retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature) => {
+                    retryRegen || (fetchAPI = await (async (signal, body, model, prompt, temperature) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiments) {
                             attachments.push({
@@ -439,50 +753,59 @@ const updateParams = res => {
                             prompt = '';
                         }
                         let res;
-                        const body = {
+                        const json = {
                             completion: {
                                 ...Config.Settings.PassParams && {
                                     temperature
                                 },
-                                prompt: prompt || '',
+                                prompt,
                                 timezone: AI.zone(),
-                                model: model || AI.mdl()
+                                model
                             },
                             organization_uuid: uuidOrg,
                             conversation_uuid: Conversation.uuid,
                             text: prompt,
                             attachments
                         };
-                        let headers = {
-                            ...AI.hdr(Conversation.uuid || ''),
-                            Accept: 'text/event-stream',
-                            Cookie: getCookies()
-                        };
-                        const executor = Config.Settings.Superfetch ? Superfetch : fetch;
-                        res = await executor(AI.end() + '/a/append_message', {
-                            ...!Config.Settings.Superfetch && {
-                                signal
-                            },
+                        res = Config.Settings.Superfetch ? await superfetch({
+                            url: AI.end() + '/api/append_message',
                             method: 'POST',
-                            body: JSON.stringify(body),
-                            headers
+                            body: json,
+                            headers: {
+                                Accept: 'text/event-stream',
+                                Cookie: getCookies(),
+                                'User-Agent': AI.agent()
+                            }
+                        }) : await fetch(AI.end() + '/api/append_message', {
+                            signal,
+                            method: 'POST',
+                            body: JSON.stringify(json),
+                            headers: {
+                                ...AI.hdr(),
+                                Accept: 'text/event-stream',
+                                Cookie: getCookies(),
+                                'User-Agent': AI.agent()
+                            }
                         });
                         updateParams(res);
                         await checkResErr(res);
                         return res;
-                    })(signal, model, prompt, temperature));
+                    })(signal, 0, model, prompt, temperature));
                     const response = Writable.toWeb(res);
-                    clewdStream = new ClewdStream({
-                        config: Config,
-                        version: Main,
-                        minSize: Config.BufferSize,
-                        modelName: model,
-                        streaming: body.stream,
-                        abortControl,
-                        sourceStream: Config.Settings.Superfetch ? fetchAPI : null
-                    }, Logger);
-                    titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
-                    Config.Settings.Superfetch ? await Readable.toWeb(fetchAPI.stdout).pipeThrough(clewdStream).pipeTo(response) : await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    clewdStream = new ClewdStream(Config.BufferSize, model, body.stream, controller);
+                    if (Config.Settings.Superfetch) {
+                        const superStream = new ReadableStream({
+                            start(controller) {
+                                fetchAPI.body.split('\n').filter((message => '\n' !== message)).forEach((message => controller.enqueue(message)));
+                                controller.close();
+                            }
+                        });
+                        await superStream.pipeThrough(clewdStream).pipeTo(response);
+                        setTitle('ok ' + bytesToSize(clewdStream.size));
+                    } else {
+                        titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
+                        await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    }
                 } catch (err) {
                     if ('AbortError' === err.name) {
                         return res.end();
@@ -497,11 +820,11 @@ const updateParams = res => {
                         }
                     });
                 } finally {
-                    clearInterval(titleTimer);
+                    Config.Settings.Superfetch || clearInterval(titleTimer);
                     if (clewdStream) {
                         clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                         prevImpersonated = clewdStream.impersonated;
-                        Config.Settings.Superfetch ? console.log('superfetch-end\n') : console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
+                        console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
                         setTitle('ok ' + bytesToSize(clewdStream.size));
                         clewdStream.empty();
                     }
@@ -538,8 +861,13 @@ const updateParams = res => {
 
 !async function() {
     await (async () => {
-        if (existsSync(ConfigPath)) {
-            const userConfig = require(ConfigPath), validConfigs = Object.keys(Config), parsedConfigs = Object.keys(userConfig), parsedSettings = Object.keys(userConfig.Settings), invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config))), validSettings = Object.keys(Config.Settings);
+        if (FS.existsSync(ConfigPath)) {
+            const userConfig = require(ConfigPath);
+            const validConfigs = Object.keys(Config);
+            const parsedConfigs = Object.keys(userConfig);
+            const parsedSettings = Object.keys(userConfig.Settings);
+            const invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config)));
+            const validSettings = Object.keys(Config.Settings);
             UnknownSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
             invalidConfigs.forEach((config => {
                 console.warn(`unknown config in config.js: [33m${config}[0m`);
@@ -547,7 +875,8 @@ const updateParams = res => {
             UnknownSettings.forEach((setting => {
                 console.warn(`unknown setting in config.js: [33mSettings.${setting}[0m`);
             }));
-            const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config))), missingSettings = validSettings.filter((config => !parsedSettings.includes(config)));
+            const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config)));
+            const missingSettings = validSettings.filter((config => !parsedSettings.includes(config)));
             missingConfigs.forEach((config => {
                 console.warn(`adding missing config in config.js: [33m${config}[0m`);
                 userConfig[config] = Config[config];
@@ -558,7 +887,7 @@ const updateParams = res => {
             }));
             ChangedSettings = parsedSettings.filter((setting => Config.Settings[setting] !== userConfig.Settings[setting]));
             (missingConfigs.length > 0 || missingSettings.length > 0) && await writeSettings(userConfig);
-            userConfig.Settings.LogMessages && (Logger = createWriteStream(LogPath));
+            userConfig.Settings.LogMessages && (Logger = require('fs').createWriteStream(LogPath));
             Config = {
                 ...Config,
                 ...userConfig

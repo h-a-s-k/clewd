@@ -12,43 +12,6 @@
 </a>
 </div>
 
-# 4.0
-
-> **Streaming changes**
-
-reworked how messages are parsed, again
-
-> **Superfetch** reworked
-
-pros:
-- streaming
-- fast
-- more reliable
-- no lingering processes
-- no firewall issues (hopefully)
-
-cons:
-- the AI typing might look weird
-- no android-armv7
-- android-arm64 possibly doesn't work
-- mac-arm64 possibly doesn't work
-- no 32bit for any platform for now
-- poor error handling
-
-tested on linux and windows
-
-> **SuperfetchHost** and **SuperfetchPort** removed
-
-> **Minor changes**
-
-split code into multiple files
-
-clewd-superfetch and clewd are now the same package
-
-removed all dependencies
-
-**git** [added to requirements](https://gitgud.io/ahsk/clewd/#requirements) (highly recommended so update scripts work, otherwise do a clean install)
-
 # 3.8.5
 
 fixed memory leak on clewd-superfetch
