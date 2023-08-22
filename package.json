@@ -7,15 +7,26 @@
     "node": ">=20.4.0"
   },
   "scripts": {
-    "run": "node clewd.js",
-	"postinstall": "npm update && npm i clewd-superfetch"
+    "run": "node clewd.js"
   },
   "keywords": [
     "doom",
     "coom"
   ],
-  "author": { "name": "ahsk", "url": "https://gitgud.io/ahsk" },
-  "contributors": [{ "name": "ahsk", "url": "https://gitgud.io/ahsk" }, { "name": "h-a-s-k", "url": "https://github.com/h-a-s-k" }],
+  "author": {
+    "name": "ahsk",
+    "url": "https://gitgud.io/ahsk"
+  },
+  "contributors": [
+    {
+      "name": "ahsk",
+      "url": "https://gitgud.io/ahsk"
+    },
+    {
+      "name": "h-a-s-k",
+      "url": "https://github.com/h-a-s-k"
+    }
+  ],
   "homepage": "https://gitgud.io/ahsk/clewd",
   "repository": {
     "type": "git",
@@ -25,6 +36,6 @@
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
   "dependencies": {
-    "clewd-superfetch": "github:h-a-s-k/clewd-superfetch"
+    "ws": "^8.13.0"
   }
 }

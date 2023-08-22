@@ -232,7 +232,7 @@ const onListen = async () => {
     }
     updateCookies(Config.Cookie);
     console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
-    Superfetch = Config.Settings.Superfetch ? new (require('clewd-superfetch'))({
+    Superfetch = Config.Settings.Superfetch ? new (require('./lib/clewd-superfetch.js'))({
         host: Config.SuperfetchHost,
         port: Config.SuperfetchPort
     }) : null;
