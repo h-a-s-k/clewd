@@ -20,8 +20,6 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
     Port: 8444,
     BufferSize: 8,
     SystemInterval: 3,
-    PromptExperimentFirst: '',
-    PromptExperimentNext: '',
     PersonalityFormat: '{{char}}\'s personality: {{personality}}',
     ScenarioFormat: 'Dialogue scenario: {{scenario}}',
     Settings: {
@@ -429,7 +427,7 @@ const updateParams = res => {
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     'R' !== type || prompt || (prompt = '...regen...');
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
-                    retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature, type) => {
+                    retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiments) {
                             attachments.push({
@@ -438,7 +436,7 @@ const updateParams = res => {
                                 file_size: Buffer.from(prompt).byteLength,
                                 file_type: 'text/plain'
                             });
-                            prompt = 'r' === type ? Config.PromptExperimentFirst : Config.PromptExperimentNext;
+                            prompt = '';
                         }
                         let res;
                         const body = {
@@ -472,7 +470,7 @@ const updateParams = res => {
                         updateParams(res);
                         await checkResErr(res);
                         return res;
-                    })(signal, model, prompt, temperature, type));
+                    })(signal, model, prompt, temperature));
                     const response = Writable.toWeb(res);
                     clewdStream = new ClewdStream({
                         config: Config,
@@ -581,8 +579,12 @@ const cleanup = async () => {
     try {
         await deleteChat(Conversation.uuid);
         Logger?.close();
-    } catch (err) {}
-    process.exit();
+        Superfetch?.exit((() => {
+            process.exit();
+        }));
+    } catch (err) {
+        process.exit();
+    }
 };
 
 process.on('SIGHUP', cleanup);

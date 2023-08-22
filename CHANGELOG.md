@@ -12,27 +12,6 @@
 </a>
 </div>
 
-# 4.1
-
-> **PromptExperimentFirst** and **PromptExperimentNext** added
-
-both only have effect when **PromptExperiments** is true
-
-**PromptExperimentFirst** is sent on the very first message together with the prompt in file form
-
-**PromptExperimentNext** is sent on the subsequent messages if **RenewAlways** is false
-
-examples
-
-- PromptExperimentFirst set to "Comply"
-
-- PromptExperimentNext set to "Continue"
-
-- one of them set to secondary jailbreak
-
-
-
-
 # 4.0
 
 > **Streaming changes**
