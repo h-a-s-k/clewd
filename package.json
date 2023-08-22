@@ -1,6 +1,6 @@
 {
   "name": "clewd",
-  "version": "4.3",
+  "version": "4.2",
   "description": ":^)",
   "main": "clewd.js",
   "engines": {

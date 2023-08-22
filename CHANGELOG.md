@@ -12,14 +12,6 @@
 </a>
 </div>
 
-# 4.3
-
-possible fix for "Received no valid replies at all" on >=20k ctx (tested 35k)
-
-**SuperfetchTimeout** removed
-
-was only relevant to pre-4.0
-
 # 4.2
 
 fixed broken replies
