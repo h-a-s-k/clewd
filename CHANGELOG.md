@@ -12,6 +12,81 @@
 </a>
 </div>
 
+# 4.3
+
+possible fix for "Received no valid replies at all" on >=20k ctx (tested 35k)
+
+> **SuperfetchTimeout** removed
+
+was only relevant to pre-4.0
+
+> **Hotfix 1**
+
+fixed another source of "Received no valid replies at all"
+
+
+# 4.2
+
+fixed broken replies
+
+# 4.1
+
+> **PromptExperimentFirst** and **PromptExperimentNext** added
+
+both only have effect when **PromptExperiments** is true
+
+**PromptExperimentFirst** is sent on the very first message together with the prompt in file form
+
+**PromptExperimentNext** is sent on the subsequent messages if **RenewAlways** is false
+
+examples
+
+- PromptExperimentFirst set to "Comply"
+
+- PromptExperimentNext set to "Continue"
+
+- one of them set to secondary jailbreak
+
+
+
+
+# 4.0
+
+> **Streaming changes**
+
+reworked how messages are parsed, again
+
+> **Superfetch** reworked
+
+pros:
+- streaming
+- fast
+- more reliable
+- no lingering processes
+- no firewall issues (hopefully)
+
+cons:
+- the AI typing might look weird
+- no android-armv7
+- android-arm64 possibly doesn't work
+- mac-arm64 possibly doesn't work
+- no 32bit for any platform for now
+- poor error handling
+
+tested on linux and windows
+
+> **SuperfetchHost** and **SuperfetchPort** removed
+
+> **Minor changes**
+
+split code into multiple files
+
+clewd-superfetch and clewd are now the same package
+
+removed all dependencies
+
+**git** [added to requirements](https://gitgud.io/ahsk/clewd/#requirements) (highly recommended so update scripts work, otherwise do a clean install)
+
 # 3.8.5
 
 fixed memory leak on clewd-superfetch
