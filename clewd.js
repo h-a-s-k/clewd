@@ -4,7 +4,7 @@
 */
 'use strict';
 
-const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync, writeFileSync, createWriteStream} = require('node:fs'), {join: joinP} = require('node:path'), {Superfetch, SuperfetchAvailable} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, Replacements, Main} = require('./lib/clewd-utils'), ClewdStream = require('./lib/clewd-stream');
+const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Replacements, Main} = require('./lib/clewd-utils'), ClewdStream = require('./lib/clewd-stream');
 
 let ChangedSettings, UnknownSettings, Logger;
 
@@ -60,7 +60,7 @@ const updateParams = res => {
     updateCookies(res);
 }, updateCookies = res => {
     let cookieNew = '';
-    res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res?.superfetch ? cookieNew = res.headers?.['Set-Cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
+    res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res?.superfetch ? cookieNew = res.headers?.['set-cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
     if (!cookieNew) {
         return;
     }
@@ -104,7 +104,9 @@ const updateParams = res => {
             ...AI.hdr(),
             Cookie: getCookies()
         }
-    }), accInfo = (await accRes.json())?.[0];
+    });
+    await checkResErr(accRes);
+    const accInfo = (await accRes.json())?.[0];
     if (!accInfo || accInfo.error) {
         throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText}"`);
     }
@@ -113,7 +115,6 @@ const updateParams = res => {
     }
     setTitle('ok');
     updateParams(accRes);
-    await checkResErr(accRes);
     console.log('Logged in %o', {
         name: accInfo.name?.split('@')?.[0],
         capabilities: accInfo.capabilities
@@ -135,7 +136,7 @@ const updateParams = res => {
             if ('consumer_restricted_mode' === type) {
                 return;
             }
-            const req = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
+            const req = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
                 headers: {
                     ...AI.hdr(),
                     Cookie: getCookies()
@@ -156,35 +157,8 @@ const updateParams = res => {
     }), conversations = await convRes.json();
     updateParams(convRes);
     conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
-}, checkResErr = async res => {
-    if (res.status < 200 || res.status >= 300) {
-        let err = Error('Unexpected response code: ' + res.status);
-        try {
-            let json, error;
-            if (res.superfetch) {
-                error = {
-                    message: res.body,
-                    ...res
-                };
-                delete error.body;
-            } else {
-                json = await res.json();
-                error = json.error;
-            }
-            if (error) {
-                err.planned = true;
-                error.message && (err.message = error.message);
-                error.type && (err.type = error.type);
-                if (429 === res.status && error.resets_at) {
-                    const hours = ((new Date(1e3 * error.resets_at).getTime() - Date.now()) / 1e3 / 60 / 60).toFixed(2);
-                    err.message += `, expires in ${hours} hours`;
-                }
-            }
-        } catch (err) {}
-        throw Error(err);
-    }
 }, writeSettings = async (config, firstRun = false) => {
-    writeFileSync(ConfigPath, `/*\n* https://gitgud.io/ahsk/clewd\n* https://github.com/h-a-s-k/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval\n * How many messages until \`SystemExperiments alternates\`\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * and\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
+    write(ConfigPath, `/*\n* https://gitgud.io/ahsk/clewd\n* https://github.com/h-a-s-k/clewd\n*/\n\n// SET YOUR COOKIE BELOW\n\nmodule.exports = ${JSON.stringify(config, null, 4)}\n\n/*\n BufferSize\n * How many characters will be buffered before the AI types once\n * lower = less chance of \`PreventImperson\` working properly\n\n ---\n\n SystemInterval\n * How many messages until \`SystemExperiments alternates\`\n\n ---\n\n Other settings\n * https://gitgud.io/ahsk/clewd/#defaults\n * and\n * https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md\n */`.trim().replace(/((?<!\r)\n|\r(?!\n))/g, '\r\n'));
     if (firstRun) {
         console.warn('[33mconfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
         process.exit(0);
@@ -304,9 +278,8 @@ const updateParams = res => {
                                 headers = names.map(((header, idx) => `${header}: ${values[idx]}`));
                             }
                             res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/retry_message', {
-                                ...!Config.Settings.Superfetch && {
-                                    signal
-                                },
+                                stream: true,
+                                signal,
                                 method: 'POST',
                                 body: JSON.stringify(body),
                                 headers
@@ -320,7 +293,7 @@ const updateParams = res => {
                         fetchAPI = await (async signal => {
                             Conversation.uuid = randomUUID().toString();
                             Conversation.depth = 0;
-                            const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+                            const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
                                 signal,
                                 headers: {
                                     ...AI.hdr(),
@@ -351,7 +324,7 @@ const updateParams = res => {
                         const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i, rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i, messagesClone = JSON.parse(JSON.stringify(messages)), realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role))), sampleLogs = messagesClone.filter((message => message.name)), mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
                             const next = realLogs[idx + 1];
-                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && message.name && !(message.name in Replacements))(message);
+                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && null != message.name && !(message.name in Replacements))(message);
                             if (next) {
                                 if (message.name && next.name && message.name === next.name) {
                                     message.content += '\n' + next.content;
@@ -381,14 +354,16 @@ const updateParams = res => {
                             message.jailbreak = idx === systemMessages.length - 1;
                         }));
                         Config.Settings.AllSamples && !Config.Settings.NoSamples && realLogs.forEach((message => {
-                            if ('user' === message.role) {
-                                message.name = message.customname ? message.name : 'example_user';
-                                message.role = 'system';
-                            } else if ('assistant' === message.role) {
-                                message.name = message.customname ? message.name : 'example_assistant';
-                                message.role = 'system';
-                            } else if (!message.customname) {
-                                throw Error('Invalid role ' + message.name);
+                            if (![ lastUser, lastAssistant ].includes(message)) {
+                                if ('user' === message.role) {
+                                    message.name = message.customname ? message.name : 'example_user';
+                                    message.role = 'system';
+                                } else if ('assistant' === message.role) {
+                                    message.name = message.customname ? message.name : 'example_assistant';
+                                    message.role = 'system';
+                                } else if (!message.customname) {
+                                    throw Error('Invalid role ' + message.name);
+                                }
                             }
                         }));
                         Config.Settings.NoSamples && !Config.Settings.AllSamples && sampleLogs.forEach((message => {
@@ -418,7 +393,7 @@ const updateParams = res => {
                             let spacing = '';
                             idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
                             const prefix = message.customname ? message.name + ': ' : 'system' !== message.role || message.name ? Replacements[message.name || message.role] + ': ' : '' + Replacements[message.role];
-                            return `${spacing}${message.strip ? '' : prefix}${message.content.trim()}`;
+                            return `${spacing}${message.strip ? '' : prefix}${'system' === message.role ? message.content : message.content.trim()}`;
                         }));
                         return {
                             prompt: genericFixes(prompt.join('')).trim(),
@@ -459,19 +434,15 @@ const updateParams = res => {
                             Accept: 'text/event-stream',
                             Cookie: getCookies()
                         };
-                        const executor = Config.Settings.Superfetch ? Superfetch : fetch;
-                        res = await executor(AI.end() + '/api/append_message', {
-                            ...!Config.Settings.Superfetch && {
-                                signal
-                            },
+                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/append_message', {
+                            stream: true,
+                            signal,
                             method: 'POST',
                             body: JSON.stringify(body),
                             headers
                         });
-                        if (!Config.Settings.Superfetch) {
-                            updateParams(res);
-                            await checkResErr(res);
-                        }
+                        updateParams(res);
+                        await checkResErr(res);
                         return res;
                     })(signal, model, prompt, temperature, type));
                     const response = Writable.toWeb(res);
@@ -479,40 +450,40 @@ const updateParams = res => {
                         config: Config,
                         version: Main,
                         minSize: Config.BufferSize,
-                        modelName: model,
+                        model,
                         streaming: body.stream,
                         abortControl,
-                        sourceStream: Config.Settings.Superfetch ? fetchAPI : null
+                        source: fetchAPI
                     }, Logger);
                     titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
-                    Config.Settings.Superfetch ? await Readable.toWeb(fetchAPI.stdout).pipeThrough(clewdStream).pipeTo(response) : await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    Config.Settings.Superfetch ? await Readable.toWeb(fetchAPI.body).pipeThrough(clewdStream).pipeTo(response) : await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
                 } catch (err) {
                     if ('AbortError' === err.name) {
-                        return res.end();
+                        res.end();
+                    } else {
+                        err.planned || console.error('[33mClewd:[0m\n%o', err);
+                        res.json({
+                            error: {
+                                message: 'clewd: ' + (err.message || err.name || err.type),
+                                type: err.type || err.name || err.code,
+                                param: null,
+                                code: err.code || 500
+                            }
+                        });
                     }
-                    err.planned || console.error('[33mClewd:[0m\n%o', err);
-                    res.json({
-                        error: {
-                            message: 'clewd: ' + (err.message || err.name || err.type),
-                            type: err.type || err.name || err.code,
-                            param: null,
-                            code: err.code || 500
-                        }
-                    });
-                } finally {
-                    clearInterval(titleTimer);
-                    if (clewdStream) {
-                        clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
-                        prevImpersonated = clewdStream.impersonated;
-                        Config.Settings.Superfetch ? console.log('superfetch-end\n') : console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
-                        setTitle('ok ' + bytesToSize(clewdStream.size));
-                        clewdStream.empty();
-                    }
-                    if (prevImpersonated) {
-                        try {
-                            await deleteChat(Conversation.uuid);
-                        } catch (err) {}
-                    }
+                }
+                clearInterval(titleTimer);
+                if (clewdStream) {
+                    clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
+                    prevImpersonated = clewdStream.impersonated;
+                    setTitle('ok ' + bytesToSize(clewdStream.size));
+                    console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
+                    clewdStream.empty();
+                }
+                if (prevImpersonated) {
+                    try {
+                        await deleteChat(Conversation.uuid);
+                    } catch (err) {}
                 }
             }));
         })(req, res);
@@ -541,7 +512,7 @@ const updateParams = res => {
 
 !async function() {
     await (async () => {
-        if (existsSync(ConfigPath)) {
+        if (exists(ConfigPath)) {
             const userConfig = require(ConfigPath), validConfigs = Object.keys(Config), parsedConfigs = Object.keys(userConfig), parsedSettings = Object.keys(userConfig.Settings), invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config))), validSettings = Object.keys(Config.Settings);
             UnknownSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
             invalidConfigs.forEach((config => {

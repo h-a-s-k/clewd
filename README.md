@@ -63,13 +63,14 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
  - `StripAssistant`: (false)/true
     * true strips the "Assistant:" prefix from the last assistant message
+    * (check your log.txt to see where it is being stripped, not the same as pre 3.0)
 
  - `StripHuman`: (false)/true
     * true strips the "Human:" prefix from the last human message
 
  - `AllSamples`: (false)/true
     * mutually exclusive with `NoSamples`
-    * true converts all real dialogue to "sample dialogue"
+    * true converts all real dialogue to "sample dialogue" except the last Assistant and Human
     * you're "H" and the AI is "A"
     * whatever the AI replies with is kept (only outgoing)
     * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
