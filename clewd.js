@@ -110,6 +110,7 @@ const AddxmlPlot = (content) => {
     content = content.replace(/(?<=\n<(card|hidden|example)>\n)\s*/g, '');
     content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
     content = content.replace(/\n<(example|hidden)>\n<\/\1>/g, '');
+    content = content.replace(/\n\n\n/g, '\n\n');
 
     return content
 };
