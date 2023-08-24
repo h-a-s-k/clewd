@@ -12,6 +12,30 @@
 </a>
 </div>
 
+# 4.5
+
+expanded superfetch to fix some errors
+
+status codes and *some* basic as fuck error handling for superfetch
+
+stopped trimming system messages
+
+fixed crash sometimes after superfetch request
+
+fixed impersonation sometimes not stopping
+
+fixed hard-censor detection
+
+fixed weird behavior when "Add character names" was checked
+
+fixed another source of "Received no valid replies at all"
+
+chown added to start.sh to stop EACESS errors
+
+> **AllSamples** changed
+
+last Assistant and Human will not be transformed into examples
+
 # 4.4
 
 fixed another source of "Received no valid replies at all"
