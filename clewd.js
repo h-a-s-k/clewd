@@ -239,16 +239,17 @@ const updateParams = res => {
             Cookie: getCookies()
         }
     });
+/**************************** */
+    if ((accRes.statusText === 'Forbidden') && Config.CookieArray.length > 0){
+        Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
+        writeSettings(Config);
+        currentIndex = currentIndex - 1;
+        return CookieChanger.emit('ChangeCookie');
+    }
+/**************************** */    
     await checkResErr(accRes);
     const accInfo = (await accRes.json())?.[0];
     if (!accInfo || accInfo.error) {
-/**************************** */
-        if (accRes.statusText === 'Forbidden' && Config.CookieArray.length > 0){
-            Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
-            writeSettings(Config);
-            return CookieChanger.emit('ChangeCookie');
-        }
-/**************************** */
         throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText}"`);
     }
     if (!accInfo?.uuid) {
@@ -631,6 +632,7 @@ const updateParams = res => {
                     if (clewdStream.readonly) {
                         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                         writeSettings(Config);
+                        currentIndex = currentIndex - 1;
                     }
                     clewdStream.cookiechange && CookieChanger.emit('ChangeCookie');
 /******************************** */
