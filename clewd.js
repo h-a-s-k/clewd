@@ -550,7 +550,7 @@ const updateParams = res => {
                     'R' !== type || prompt || (prompt = '...regen...');
 /****************************************************************/
                     Config.Settings.xmlPlot && (prompt = AddxmlPlot(prompt));
-                    Config.Settings.FullColon && (prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '：'));
+                    Config.Settings.FullColon && (prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '： '));
                     Config.Settings.padtxt && (prompt = padJson(prompt));
 /****************************************************************/                    
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
