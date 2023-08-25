@@ -657,7 +657,7 @@ const updateParams = res => {
         break;
 
       default:
-        console.log('unknown request: ' + req.url);
+        req.url !== '/' && (console.log('unknown request: ' + req.url)); //console.log('unknown request: ' + req.url);
         res.json({
             error: {
                 message: '404 Not Found',
@@ -714,6 +714,7 @@ const updateParams = res => {
     })();
 /***************************** */    
     !Config.rProxy && (Config.rProxy = AI.end());
+    Config.rProxy.endsWith('/') && (Config.rProxy = Config.rProxy.slice(0, -1));
     currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
 /***************************** */    
     Proxy.listen(Config.Port, Config.Ip, onListen);
