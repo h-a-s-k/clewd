@@ -86,14 +86,14 @@ const simpletokenizer = (str) => {
     let processMatch = content.match(/\n##.*?\n<process>[\s\S]*?<\/process>\n/);
   
     if (sexMatch && processMatch) {
-        content = content.replace(sexMatch[0], ""); // 移除<sex>部分
+        content = content.replace(sexMatch[0], ''); // 移除<sex>部分
         content = content.replace(processMatch[0], sexMatch[0] + processMatch[0]); // 将<sex>部分插入<delete>部分的前面
     }
 
     let illustrationMatch = content.match(/\n##.*?\n<illustration>[\s\S]*?<\/illustration>\n/);
 
     if (illustrationMatch && processMatch) {
-        content = content.replace(illustrationMatch[0], ""); // 移除<illustration>部分
+        content = content.replace(illustrationMatch[0], ''); // 移除<illustration>部分
         content = content.replace(processMatch[0], illustrationMatch[0] + processMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
@@ -103,6 +103,17 @@ const simpletokenizer = (str) => {
     content = content.replace(/(?<=\n<(card|hidden|example)>\n)\s*/g, '');
     content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
     content = content.replace(/\n<(example|hidden)>\n<\/\1>/g, '');
+
+    if (Config.Settings.xmlPlot === 2) {
+        let hiddenregex = /\n<hidden>[\s\S]*?<\/hidden>/g;
+        let lastHumanIndex = content.lastIndexOf('\n\nHuman:');
+        let jailbreak = content.slice(lastHumanIndex).match(hiddenregex);
+        if (jailbreak) {
+            content = content.replace(jailbreak, '');                      
+            content = content.slice(0, lastHumanIndex) + '\n\nSystem:' + jailbreak + '\n' + content.slice(lastHumanIndex);
+        }
+    }
+    
     content = content.replace(/\n\n\n/g, '\n\n');
 
     return content;
@@ -542,7 +553,7 @@ const updateParams = res => {
                                 return message.content;
                             }
                             let spacing = '';
-                            //idx > 0 && (spacing = systemMessages.includes(message) ? '\n\n' : '\n\n');
+                            //idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
                             idx > 0 && (spacing = '\n\n');
                             const prefix = message.customname ? message.name + ': ' : 'system' !== message.role || message.name ? Replacements[message.name || message.role] + ': ' : '' + Replacements[message.role];
                             return `${spacing}${message.strip ? '' : prefix}${'system' === message.role ? message.content : message.content.trim()}`;
@@ -556,7 +567,7 @@ const updateParams = res => {
                     'R' !== type || prompt || (prompt = '...regen...');
 /****************************************************************/
                     Config.Settings.xmlPlot && (prompt = AddxmlPlot(prompt));
-                    Config.Settings.FullColon && (prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?)):[ ]?/g, '： '));
+                    Config.Settings.FullColon && (prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?|[Ss]ystem)):[ ]?/g, '： '));
                     Config.Settings.padtxt && (prompt = padJson(prompt));
 /****************************************************************/                    
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
