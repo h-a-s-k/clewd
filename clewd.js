@@ -7,7 +7,7 @@
 const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Replacements, Main} = require('./lib/clewd-utils'), ClewdStream = require('./lib/clewd-stream');
 
 /******************************************************* */
-let currentIndex = 0, Firstlogin = true;
+let currentIndex = 0, Firstlogin = true, changeflag = 0;
 
 const events = require('events'), CookieChanger = new events.EventEmitter();
 
@@ -120,6 +120,7 @@ const ConfigPath = joinP(__dirname, './config.js'), LogPath = joinP(__dirname, '
 let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonated = false, Config = {
     Cookie: '',
     CookieArray: [],
+    Cookiecounter: 0,
     Ip: process.env.PORT ? '0.0.0.0' : '127.0.0.1',
     Port: process.env.PORT || 8444,
     BufferSize: 1,
@@ -238,7 +239,7 @@ const updateParams = res => {
         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
         writeSettings(Config);
         currentIndex = currentIndex - 1;
-        CookieChanger.emit('ChangeCookie');
+        return CookieChanger.emit('ChangeCookie');
     }
 /**************************** */    
     await checkResErr(accRes);
@@ -639,7 +640,11 @@ const updateParams = res => {
                         writeSettings(Config);
                         currentIndex = currentIndex - 1;
                     }
-                    clewdStream.cookiechange && CookieChanger.emit('ChangeCookie');
+                    changeflag = changeflag + 1;
+                    if (clewdStream.cookiechange || changeflag == Config.Cookiecounter) {
+                        changeflag = 0;
+                        CookieChanger.emit('ChangeCookie');
+                    }
 /******************************** */
                     console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
                     clewdStream.empty();
