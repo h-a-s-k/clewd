@@ -7,12 +7,9 @@
 const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Replacements, Main} = require('./lib/clewd-utils'), ClewdStream = require('./lib/clewd-stream');
 
 /******************************************************* */
-let currentIndex = 0;
+let currentIndex = 0, Firstlogin = true;
 
-let Firstlogin = true;
-
-const events = require('events');
-const CookieChanger = new events.EventEmitter();
+const events = require('events'), CookieChanger = new events.EventEmitter();
 
 CookieChanger.on('ChangeCookie', () => {
     Proxy && Proxy.close();
@@ -36,10 +33,8 @@ const simpletokenizer = (str) => {
         }
     }
     return byteLength;
-}
-
-const padJson = (json) => {
-    if (Config.padtxt_placeholder.length > 0){
+}, padJson = (json) => {
+    if (Config.padtxt_placeholder.length > 0) {
         var placeholder = Config.padtxt_placeholder;
     }
     else {
@@ -59,10 +54,8 @@ const padJson = (json) => {
 
     result = result.replace(/^\s*/, '');
 
-    return result
-};
-
-const AddxmlPlot = (content) => {
+    return result;
+}, AddxmlPlot = (content) => {
     // 检查内容中是否包含"<card>","[Start a new"字符串
     if (!content.includes('<card>')) {
         return content;
@@ -112,7 +105,7 @@ const AddxmlPlot = (content) => {
     content = content.replace(/\n<(example|hidden)>\n<\/\1>/g, '');
     content = content.replace(/\n\n\n/g, '\n\n');
 
-    return content
+    return content;
 };
 /******************************************************* */
 
@@ -240,7 +233,7 @@ const updateParams = res => {
         }
     });
 /**************************** */
-    if ((accRes.statusText === 'Forbidden') && Config.CookieArray.length > 0){
+    if ((accRes.statusText === 'Forbidden') && Config.CookieArray.length > 0) {
         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
         writeSettings(Config);
         currentIndex = currentIndex - 1;
@@ -451,6 +444,17 @@ const updateParams = res => {
                                 })
                             });
                             updateParams(res);
+/**************************** */
+                            if (res.status < 200 || res.status >= 300) {
+                                let json = await res.json();
+                                if ((json.error.message.includes('Account has not completed verification')) && Config.CookieArray.length > 0) {
+                                    Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
+                                    writeSettings(Config);
+                                    currentIndex = currentIndex - 1;
+                                    return CookieChanger.emit('ChangeCookie');
+                                }   
+                            }
+/**************************** */                             
                             await checkResErr(res);
                             return res;
                         })(signal);
