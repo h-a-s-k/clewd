@@ -206,6 +206,7 @@ const updateParams = res => {
     if (Firstlogin) {
         Firstlogin = false;   
         console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
+        Config.Settings.Superfetch && SuperfetchAvailable(true);
         if (Config.Settings.localtunnel) {
             const localtunnel = require('localtunnel');
             localtunnel({ port: Config.Port })
@@ -215,8 +216,8 @@ const updateParams = res => {
         }
     }
     if (Config.CookieArray.length > 0) {
-        currentIndex = (currentIndex + 1) % Config.CookieArray.length;
         Config.Cookie = Config.CookieArray[currentIndex];
+        currentIndex = (currentIndex + 1) % Config.CookieArray.length;
     }
 /***************************** */      
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
@@ -224,7 +225,7 @@ const updateParams = res => {
     }
     updateCookies(Config.Cookie);
     //console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
-    Config.Settings.Superfetch && SuperfetchAvailable(true);
+    //Config.Settings.Superfetch && SuperfetchAvailable(true);
     const accRes = await fetch(Config.rProxy + '/api/organizations', {
         method: 'GET',
         headers: {
@@ -237,7 +238,7 @@ const updateParams = res => {
         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
         writeSettings(Config);
         currentIndex = currentIndex - 1;
-        return CookieChanger.emit('ChangeCookie');
+        CookieChanger.emit('ChangeCookie');
     }
 /**************************** */    
     await checkResErr(accRes);
@@ -451,7 +452,7 @@ const updateParams = res => {
                                     Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                                     writeSettings(Config);
                                     currentIndex = currentIndex - 1;
-                                    return CookieChanger.emit('ChangeCookie');
+                                    CookieChanger.emit('ChangeCookie');
                                 }   
                             }
 /**************************** */                             
