@@ -652,7 +652,7 @@ const updateParams = res => {
                         currentIndex = currentIndex - 1;
                     }
                     changeflag = changeflag + 1;
-                    if (clewdStream.cookiechange || changeflag == Config.Cookiecounter) {
+                    if (clewdStream.cookiechange || (changeflag && changeflag >= Config.Cookiecounter)) {
                         changeflag = 0;
                         CookieChanger.emit('ChangeCookie');
                     }
@@ -760,6 +760,13 @@ process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
 process.on('exit', (async () => {
-    console.log('restarting...'); //console.log('exiting...');
-    CookieChanger.emit('ChangeCookie');
+    //console.log('exiting...');
+/********************* */
+    console.log('restarting...'); 
+    Proxy && Proxy.close();
+    Proxy.listen(Config.Port, Config.Ip, onListen);
+    Proxy.on('error', (err => {
+        console.error('Proxy error\n%o', err);
+    }));
+/********************* */
 }));
