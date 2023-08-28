@@ -652,7 +652,7 @@ const updateParams = res => {
                         currentIndex = currentIndex - 1;
                     }
                     changeflag = changeflag + 1;
-                    if (Config.CookieArray?.length && (clewdStream.cookiechange || (changeflag && changeflag >= Config.Cookiecounter))) {
+                    if (Config.CookieArray?.length > 0 && (clewdStream.cookiechange || (Config.Cookiecounter && changeflag >= Config.Cookiecounter))) {
                         changeflag = 0;
                         CookieChanger.emit('ChangeCookie');
                     }
