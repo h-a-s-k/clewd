@@ -7,13 +7,13 @@
 const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Replacements, Main} = require('./lib/clewd-utils'), ClewdStream = require('./lib/clewd-stream');
 
 /******************************************************* */
-let currentIndex = 0, Firstlogin = true, changeflag = 0;
+let currentIndex = 1, Firstlogin = true, changeflag = 0;
 
 const events = require('events'), CookieChanger = new events.EventEmitter();
 
 CookieChanger.on('ChangeCookie', () => {
     Proxy && Proxy.close();
-    console.log('\nChanging Cookie...\n');
+    console.log(`\nChanging Cookie...\n`);
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
@@ -109,8 +109,8 @@ const simpletokenizer = (str) => {
         let lastHumanIndex = content.lastIndexOf('\n\nHuman:');
         let jailbreak = content.slice(lastHumanIndex).match(hiddenregex);
         if (jailbreak) {
-            content = content.replace(jailbreak, '');                      
-            content = content.slice(0, lastHumanIndex) + '\n\nSystem:' + jailbreak + '\n' + content.slice(lastHumanIndex);
+            content = content.replace(jailbreak, '');
+            content = content.slice(0, lastHumanIndex) + '\n\nHuman:' + jailbreak + '\n' + content.slice(lastHumanIndex);
         }
     }
     
@@ -227,11 +227,11 @@ const updateParams = res => {
             })
         }
     }
-    if (Config.CookieArray.length > 0) {
-        Config.Cookie = Config.CookieArray[currentIndex];
+    if (Config.CookieArray?.length > 0) {
+        Config.Cookie = Config.CookieArray[currentIndex -1];
         currentIndex = (currentIndex + 1) % Config.CookieArray.length;
     }
-/***************************** */      
+/***************************** */
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
@@ -252,7 +252,7 @@ const updateParams = res => {
         currentIndex = currentIndex - 1;
         return CookieChanger.emit('ChangeCookie');
     }
-/**************************** */    
+/**************************** */
     await checkResErr(accRes);
     const accInfo = (await accRes.json())?.[0];
     if (!accInfo || accInfo.error) {
@@ -467,7 +467,7 @@ const updateParams = res => {
                                     CookieChanger.emit('ChangeCookie');
                                 }   
                             }
-/**************************** */                             
+/**************************** */
                             await checkResErr(res);
                             return res;
                         })(signal);
@@ -569,7 +569,7 @@ const updateParams = res => {
                     Config.Settings.xmlPlot && (prompt = AddxmlPlot(prompt));
                     Config.Settings.FullColon && (prompt = prompt.replace(/(?<=\n\n(H(?:uman)?|A(?:ssistant)?|[Ss]ystem)):[ ]?/g, '： '));
                     Config.Settings.padtxt && (prompt = padJson(prompt));
-/****************************************************************/                    
+/****************************************************************/
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
                     retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature, type) => {
                         const attachments = [];
@@ -645,7 +645,7 @@ const updateParams = res => {
                     clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                     prevImpersonated = clewdStream.impersonated;
                     setTitle('ok ' + bytesToSize(clewdStream.size));
-/******************************** */ 
+/******************************** */
                     if (clewdStream.readonly) {
                         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                         writeSettings(Config);
@@ -728,16 +728,16 @@ const updateParams = res => {
                     Config.Settings[setting] = process.env[setting] ?? Config.Settings[setting];
                 }
             } else {
-                Config[key] = key === 'CookieArray' ? (process.env[key]?.split(',') ?? Config[key]) : (process.env[key] ?? Config[key]);
+                Config[key] = key === 'CookieArray' ? (process.env[key]?.split(',').replace(/[\[\]"\s]/g, '') ?? Config[key]) : (process.env[key] ?? Config[key]);
             }
         }
 /***************************** */
     })();
-/***************************** */    
+/***************************** */
     !Config.rProxy && (Config.rProxy = AI.end());
     Config.rProxy.endsWith('/') && (Config.rProxy = Config.rProxy.slice(0, -1));
     currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
-/***************************** */    
+/***************************** */
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
         console.error('Proxy error\n%o', err);
@@ -760,5 +760,6 @@ process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
 process.on('exit', (async () => {
-    console.log('exiting...');
+    console.log('restarting...'); //console.log('exiting...');
+    CookieChanger.emit('ChangeCookie');
 }));
