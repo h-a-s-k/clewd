@@ -296,7 +296,7 @@ const updateParams = res => {
             console.log(`${type}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag.type))));
 /***************************** */
-        CookieChanger.emit('ChangeCookie');
+        Config.CookieArray?.length > 0 && CookieChanger.emit('ChangeCookie');
 /***************************** */
     }
     const convRes = await fetch(`${Config.rProxy}/api/organizations/${uuidOrg}/chat_conversations`, {
@@ -460,7 +460,7 @@ const updateParams = res => {
 /**************************** */
                             if (res.status < 200 || res.status >= 300) {
                                 let json = await res.json();
-                                if ((json.error.message.includes('Account has not completed verification')) && Config.CookieArray.length > 0) {
+                                if ((json.error.message.includes('Account has not completed verification')) && Config.CookieArray?.length > 0) {
                                     Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                                     writeSettings(Config);
                                     currentIndex = currentIndex - 1;
@@ -652,7 +652,7 @@ const updateParams = res => {
                         currentIndex = currentIndex - 1;
                     }
                     changeflag = changeflag + 1;
-                    if (clewdStream.cookiechange || (changeflag && changeflag >= Config.Cookiecounter)) {
+                    if (Config.CookieArray?.length && (clewdStream.cookiechange || (changeflag && changeflag >= Config.Cookiecounter))) {
                         changeflag = 0;
                         CookieChanger.emit('ChangeCookie');
                     }
@@ -760,13 +760,5 @@ process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
 process.on('exit', (async () => {
-    //console.log('exiting...');
-/********************* */
-    console.log('restarting...'); 
-    Proxy && Proxy.close();
-    Proxy.listen(Config.Port, Config.Ip, onListen);
-    Proxy.on('error', (err => {
-        console.error('Proxy error\n%o', err);
-    }));
-/********************* */
+    console.log('exiting...');
 }));
