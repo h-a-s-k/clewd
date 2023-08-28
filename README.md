@@ -19,7 +19,7 @@
 Clewd修改版及教程禁止转发任何包含收费项目的群组/论坛或用于收费项目
 <br>
 <hr>
-<a href="https://gitgud.io/ahsk/clewd/-/archive/master/clewd-master.zip">
+<a>
    <img src="https://gitgud.io/ahsk/clewd/-/raw/master/media/program.png">
 </a>
 <h2><a href="https://gitgud.io/ahsk/clewd/-/blob/master/CHANGELOG.md">CHANGELOG</a></h2>
