@@ -728,7 +728,7 @@ const updateParams = res => {
                     Config.Settings[setting] = process.env[setting] ?? Config.Settings[setting];
                 }
             } else {
-                Config[key] = key === 'CookieArray' ? (process.env[key]?.split(',').replace(/[\[\]"\s]/g, '') ?? Config[key]) : (process.env[key] ?? Config[key]);
+                Config[key] = key === 'CookieArray' ? (process.env[key]?.split(',') ?? Config[key]) : (process.env[key] ?? Config[key]);
             }
         }
 /***************************** */
