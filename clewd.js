@@ -228,8 +228,8 @@ const updateParams = res => {
         }
     }
     if (Config.CookieArray?.length > 0) {
-        Config.Cookie = Config.CookieArray[currentIndex -1];
-        currentIndex = (currentIndex + 1) % Config.CookieArray.length;
+        Config.Cookie = Config.CookieArray[currentIndex];
+        currentIndex = (currentIndex + 1) % (Config.CookieArray.length - 1);
     }
 /***************************** */
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
