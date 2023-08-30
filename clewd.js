@@ -678,6 +678,7 @@ const updateParams = res => {
                     clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                     prevImpersonated = clewdStream.impersonated;
                     setTitle('ok ' + bytesToSize(clewdStream.size));
+                    console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
 /******************************** */
                     if (clewdStream.readonly) {
                         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
@@ -690,7 +691,6 @@ const updateParams = res => {
                         CookieChanger.emit('ChangeCookie');
                     }
 /******************************** */
-                    console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
                     clewdStream.empty();
                 }
                 if (prevImpersonated) {
@@ -769,7 +769,7 @@ const updateParams = res => {
 /***************************** */
     !Config.rProxy && (Config.rProxy = AI.end());
     Config.rProxy.endsWith('/') && (Config.rProxy = Config.rProxy.slice(0, -1));
-    currentIndex = Math.floor(Math.random() * Config.CookieArray.length);
+    Config.Cookiecounter !== -1 && (currentIndex = Math.floor(Math.random() * Config.CookieArray.length));
 /***************************** */
     Proxy.listen(Config.Port, Config.Ip, onListen);
     Proxy.on('error', (err => {
