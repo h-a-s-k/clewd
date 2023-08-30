@@ -315,7 +315,7 @@ const updateParams = res => {
     }), conversations = await convRes.json();
     updateParams(convRes);
 /**************************** */
-    if (Config.Cookiecounter === -1) {
+    if (Config.Cookiecounter === -1 && currentIndex) {
         Conversation.uuid = randomUUID().toString();
         const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${Config.rProxy}/api/organizations/${uuidOrg}/chat_conversations`, {
             headers: {
@@ -333,6 +333,8 @@ const updateParams = res => {
             writeSettings(Config);
             currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
         }
+        changeflag += 1;
+        console.log(`Counter: ${changeflag}\nstatus: ${res.status}`);
         return CookieChanger.emit('ChangeCookie');
     }
 /**************************** */
@@ -487,15 +489,11 @@ const updateParams = res => {
                             });
                             updateParams(res);
 /**************************** */
-                            if (res.status < 200 || res.status >= 300) {
-                                let json = await res.json();
-                                if ((json.error.message.includes(`account_needs_verification`)) && Config.CookieArray?.length > 0) {
-                                    Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
-                                    writeSettings(Config);
-                                    currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
-                                    console.log(`res.status: ${res.status}`);
-                                    CookieChanger.emit('ChangeCookie');
-                                }   
+                            if (res.status === 403 && Config.CookieArray?.length > 0) {
+                                Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
+                                writeSettings(Config);
+                                currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
+                                CookieChanger.emit('ChangeCookie');
                             }
 /**************************** */
                             await checkResErr(res);
@@ -519,10 +517,10 @@ const updateParams = res => {
                             message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && null != message.name && !(message.name in Replacements))(message);
                             if (next) {
                                 if (message.name && next.name && message.name === next.name) {
-                                    message.content += '\n' + next.content;
+                                    message.content += '\n\n' + next.content; //message.content += '\n' + next.content;
                                     next.merged = true;
                                 } else if (next.role === message.role) {
-                                    message.content += '\n' + next.content;
+                                    message.content += '\n\n' + next.content; //message.content += '\n' + next.content;
                                     next.merged = true;
                                 }
                             }
