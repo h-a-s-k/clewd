@@ -236,7 +236,7 @@ const updateParams = res => {
     }
     if (Config.CookieArray?.length > 0) {
         Config.Cookie = Config.CookieArray[currentIndex];
-        currentIndex = (currentIndex + 1) % (Config.CookieArray.length - 1);
+        currentIndex = (currentIndex + 1) % Config.CookieArray.length;
     }
 /***************************** */
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
@@ -256,7 +256,7 @@ const updateParams = res => {
     if (accRes.statusText === 'Forbidden' && Config.CookieArray.length > 0) {
         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
         writeSettings(Config);
-        currentIndex -= 1;
+        currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
         return CookieChanger.emit('ChangeCookie');
     }
 /**************************** */
@@ -331,7 +331,7 @@ const updateParams = res => {
         if (res.status === 403 && Config.CookieArray.length > 0) {
             Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
             writeSettings(Config);
-            currentIndex -= 1;
+            currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
         }
         return CookieChanger.emit('ChangeCookie');
     }
@@ -492,7 +492,7 @@ const updateParams = res => {
                                 if ((json.error.message.includes(`account_needs_verification`)) && Config.CookieArray?.length > 0) {
                                     Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                                     writeSettings(Config);
-                                    currentIndex -= 1;
+                                    currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
                                     console.log(`res.status: ${res.status}`);
                                     CookieChanger.emit('ChangeCookie');
                                 }   
@@ -682,7 +682,7 @@ const updateParams = res => {
                     if (clewdStream.readonly) {
                         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
                         writeSettings(Config);
-                        currentIndex -= 1;
+                        currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
                     }
                     changeflag += 1;
                     if (Config.CookieArray?.length > 0 && (clewdStream.cookiechange || (Config.Cookiecounter && changeflag >= Config.Cookiecounter))) {
