@@ -97,31 +97,22 @@ const simpletokenizer = (str) => {
         content = content.replace(processMatch[0], illustrationMatch[0] + processMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
-    content = content.replace(/\n\n<(hidden|\/plot)>[\s\S]*?\n\n<extra_prompt>\s*/, '\n\nHuman:'); //sd prompt用
-
-    //消除空XML tags或多余的\n
-    content = content.replace(/(?<=\n<(card|hidden|example)>\n)\s*/g, '');
-    content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
-    content = content.replace(/\n<(example|hidden)>\n+?<\/\1>/g, '');
-    content = content.replace(/\n<\/hidden>\n+?<hidden>\n/g, '');
-
-    if (Config.Settings.xmlPlot === 2) {
-        let hiddenregex = /\n<hidden>[\s\S]*?<\/hidden>/g;
-        let lastHumanIndex = content.lastIndexOf('\n\nHuman:');
-        let jailbreak = content.slice(lastHumanIndex).match(hiddenregex);
-        if (jailbreak) {
-            content = content.replace(jailbreak, '');
-            content = content.slice(0, lastHumanIndex) + '\n\nHuman:' + jailbreak + '\n' + content.slice(lastHumanIndex);
-        }
-    }
-
     let segcontent = content.split('\n\nHuman:');
     let processedseg = segcontent.map(seg => {
         return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
     });
+    let seglength = processedseg.length;
+    (/Assistant: *.$/.test(content) && Config.Settings.xmlPlot === 2 && seglength > 1) && (processedseg[seglength - 2] = processedseg.splice(seglength - 1, 1, processedseg[seglength - 2])[0]);
     content = processedseg.join('\n\nHuman:');
-  
-    content = content.replace(/\n\n\n/g, '\n\n');
+
+    content = content.replace(/\n\n<(hidden|\/plot)>[\s\S]*?\n\n<extra_prompt>\s*/, '\n\nHuman:'); //sd prompt用
+
+    //消除空XML tags或多余的\n
+    content = content.replace(/(\n)<\/hidden>\n+?<hidden>\n/g, '');
+    content = content.replace(/\n<(example|hidden)>\n+?<\/\1>/g, '');
+    content = content.replace(/(?<=\n<(card|hidden|example)>\n)\s*/g, '');
+    content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
+    content = content.replace(/(?<=\n)\n(?=\n)/g, '');
 
     return content;
 };
