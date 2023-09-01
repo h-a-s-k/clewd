@@ -36,8 +36,7 @@ const simpletokenizer = (str) => {
 }, padJson = (json) => {
     if (Config.padtxt_placeholder.length > 0) {
         var placeholder = Config.padtxt_placeholder;
-    }
-    else {
+    } else {
         const bytes = randomInt(5, 15);
         var placeholder = randomBytes(bytes).toString('hex');
     }
@@ -97,15 +96,17 @@ const simpletokenizer = (str) => {
         content = content.replace(processMatch[0], illustrationMatch[0] + processMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
-    let segcontent = content.split('\n\nHuman:');
-    let processedseg = segcontent.map(seg => {
-        return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
-    });
-    let seglength = processedseg.length;
-    (/Assistant: *.$/.test(content) && Config.Settings.xmlPlot === 2 && seglength > 1) && (processedseg[seglength - 2] = processedseg.splice(seglength - 1, 1, processedseg[seglength - 2])[0]);
-    content = processedseg.join('\n\nHuman:');
-
-    content = content.replace(/\n\n<(hidden|\/plot)>[\s\S]*?\n\n<extra_prompt>\s*/, '\n\nHuman:'); //sd prompt用
+    if (Config.Settings.xmlPlot === 2) {
+        let segcontent = content.split('\n\nHuman:');
+        let processedseg = segcontent.map(seg => {
+            return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
+        });
+        let seglength = processedseg.length;
+        (/Assistant: *.$/.test(content) && seglength > 1) && (processedseg[seglength - 2] = processedseg.splice(seglength - 1, 1, processedseg[seglength - 2])[0]);
+        content = processedseg.join('\n\nHuman:');
+    } else {
+        content = content.replace(/\n\n<(hidden|\/plot)>[\s\S]*?\n\n<extra_prompt>\s*/, '\n\nHuman:'); //sd prompt用
+    }
 
     //消除空XML tags或多余的\n
     content = content.replace(/(\n)<\/hidden>\n+?<hidden>\n/g, '');
