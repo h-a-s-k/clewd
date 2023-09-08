@@ -96,7 +96,7 @@ const simpletokenizer = (str) => {
         content = content.replace(processMatch[0], illustrationMatch[0] + processMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
-    if (Config.Settings.xmlPlot === 2) {
+    if (content.includes('<\/hidden>')) {
         let segcontent = content.split('\n\nHuman:');
         let processedseg = segcontent.map(seg => {
             return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
@@ -133,6 +133,7 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
     Cookiecounter: 0,
     Ip: process.env.PORT ? '0.0.0.0' : '127.0.0.1',
     Port: process.env.PORT || 8444,
+    localtunnel: false,
     BufferSize: 1,
     SystemInterval: 3,
     rProxy: AI.end(),
@@ -158,7 +159,6 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
         FullColon: true,
         padtxt: 13500,
         xmlPlot: true,
-        localtunnel: false,
         Superfetch: true
     }
 };
@@ -218,7 +218,7 @@ const updateParams = res => {
         Firstlogin = false;   
         console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
         Config.Settings.Superfetch && SuperfetchAvailable(true);
-        if (Config.Settings.localtunnel) {
+        if (Config.localtunnel) {
             const localtunnel = require('localtunnel');
             localtunnel({ port: Config.Port })
             .then((tunnel) => {
@@ -308,6 +308,7 @@ const updateParams = res => {
     updateParams(convRes);
 /**************************** */
     if (Config.Cookiecounter === -1 && currentIndex) {
+        if (!currentIndex) return;
         Conversation.uuid = randomUUID().toString();
         const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${Config.rProxy}/api/organizations/${uuidOrg}/chat_conversations`, {
             headers: {
@@ -323,7 +324,7 @@ const updateParams = res => {
         if (res.status === 403 && Config.CookieArray.length > 0) {
             Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
             writeSettings(Config);
-            currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
+            currentIndex = currentIndex - 1;
         }
         changeflag += 1;
         console.log(`Counter: ${changeflag}\nstatus: ${res.status}`);
@@ -695,7 +696,7 @@ const updateParams = res => {
       case '/v1/complete':
         res.json({
             error: {
-                message: 'clewd: Set "Chat Completion source" to OpenAI instead of Claude. Enable "External" models aswell'
+                message: 'clewd: Set "Chat Completion" to OpenAI instead of Claude. Enable "External" models aswell'
             }
         });
         break;
