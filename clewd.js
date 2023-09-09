@@ -96,7 +96,7 @@ const simpletokenizer = (str) => {
         content = content.replace(processMatch[0], illustrationMatch[0] + processMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
-    if (content.includes('<\/hidden>')) {
+    if (content.includes('</hidden>')) {
         let segcontent = content.split('\n\nHuman:');
         let processedseg = segcontent.map(seg => {
             return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
@@ -247,7 +247,7 @@ const updateParams = res => {
 /**************************** */
     if (accRes.statusText === 'Forbidden' && Config.CookieArray.length > 0) {
         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
-        writeSettings(Config);
+        (!process.env.Cookie && !process.env.CookieArray) && writeSettings(Config);
         currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
         return CookieChanger.emit('ChangeCookie');
     }
@@ -323,7 +323,7 @@ const updateParams = res => {
         });
         if (res.status === 403 && Config.CookieArray.length > 0) {
             Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
-            writeSettings(Config);
+            (!process.env.Cookie && !process.env.CookieArray) && writeSettings(Config);
             currentIndex = currentIndex - 1;
         }
         changeflag += 1;
@@ -484,7 +484,7 @@ const updateParams = res => {
 /**************************** */
                             if (res.status === 403 && Config.CookieArray?.length > 0) {
                                 Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
-                                writeSettings(Config);
+                                (!process.env.Cookie && !process.env.CookieArray) && writeSettings(Config);
                                 currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
                                 CookieChanger.emit('ChangeCookie');
                             }
@@ -673,7 +673,7 @@ const updateParams = res => {
 /******************************** */
                     if (clewdStream.readonly) {
                         Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
-                        writeSettings(Config);
+                        (!process.env.Cookie && !process.env.CookieArray) && writeSettings(Config);
                         currentIndex = currentIndex < 1 ? 0 : currentIndex - 1;
                     }
                     changeflag += 1;
