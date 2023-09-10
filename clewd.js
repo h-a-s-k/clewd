@@ -215,7 +215,7 @@ const updateParams = res => {
 }, onListen = async () => {
 /***************************** */
     if (Firstlogin) {
-        Firstlogin = false;   
+        Firstlogin = false;
         console.log(`[2m${Main}[0m\n[33mhttp://${Config.Ip}:${Config.Port}/v1[0m\n\n${Object.keys(Config.Settings).map((setting => UnknownSettings.includes(setting) ? `??? [31m${setting}: ${Config.Settings[setting]}[0m` : `[1m${setting}:[0m ${ChangedSettings.includes(setting) ? '[33m' : '[36m'}${Config.Settings[setting]}[0m`)).sort().join('\n')}\n`);
         Config.Settings.Superfetch && SuperfetchAvailable(true);
         if (Config.localtunnel) {
@@ -308,7 +308,6 @@ const updateParams = res => {
     updateParams(convRes);
 /**************************** */
     if (Config.Cookiecounter === -1 && currentIndex) {
-        if (!currentIndex) return;
         Conversation.uuid = randomUUID().toString();
         const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${Config.rProxy}/api/organizations/${uuidOrg}/chat_conversations`, {
             headers: {
@@ -324,10 +323,13 @@ const updateParams = res => {
         if (res.status === 403 && Config.CookieArray.length > 0) {
             Config.CookieArray = Config.CookieArray.filter(item => item !== Config.Cookie);
             (!process.env.Cookie && !process.env.CookieArray) && writeSettings(Config);
-            currentIndex = currentIndex - 1;
+            currentIndex -= 1;
         }
-        changeflag += 1;
-        console.log(`Counter: ${changeflag}\nstatus: ${res.status}`);
+        if (currentIndex === Config.CookieArray.length - 1) {
+            console.log(`※※※Cookie cleanup completed※※※\n\n`);
+            process.exit();
+        };
+        console.log(`length: ${Config.CookieArray.length}\nindex: ${currentIndex}\nstatus: ${res.status}`);
         return CookieChanger.emit('ChangeCookie');
     }
 /**************************** */
@@ -760,6 +762,14 @@ const updateParams = res => {
 /***************************** */
     !Config.rProxy && (Config.rProxy = AI.end());
     Config.rProxy.endsWith('/') && (Config.rProxy = Config.rProxy.slice(0, -1));
+    let uniqueArr = [], seen = new Set();
+    for (let Cookie of Config.CookieArray) {
+        if (!seen.has(Cookie)) {
+            uniqueArr.push(Cookie);
+            seen.add(Cookie);
+        }
+    }
+    Config.CookieArray = uniqueArr;
     Config.Cookiecounter !== -1 && (currentIndex = Math.floor(Math.random() * Config.CookieArray.length));
 /***************************** */
     Proxy.listen(Config.Port, Config.Ip, onListen);
