@@ -7,7 +7,7 @@
 const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Replacements, Main, fetch429} = require('./lib/clewd-utils'), ClewdStream = require('./lib/clewd-stream');
 
 /******************************************************* */
-let currentIndex = 0, Firstlogin = true, changeflag = 0;
+let currentIndex = 0, Firstlogin = true, changeflag = 0, changetime = 0, totaltime = 0;
 
 const events = require('events'), CookieChanger = new events.EventEmitter();
 
@@ -71,7 +71,7 @@ const simpletokenizer = (str) => {
                 content.slice(firstChatStart, lastChatStart) + '\n\n</example>' + 
                 content.slice(lastChatStart);
     }
-        
+    
     // 之后的第一个"Assistant: "之前插入"\n\n<plot>"
     let lastChatIndex = content.lastIndexOf('\n\n[Start a new');
     if (lastChatIndex != -1 && content.includes('</plot>')) { 
@@ -80,7 +80,7 @@ const simpletokenizer = (str) => {
             content = content.slice(0, assistantIndex) + '\n\n<plot>' + content.slice(assistantIndex);
         }
     }
-  
+
     let sexMatch = content.match(/\n##.*?\n<(sex|behavior)>[\s\S]*?<\/\1>\n/);
     let processMatch = content.match(/\n##.*?\n<process>[\s\S]*?<\/process>\n/);
   
@@ -96,16 +96,18 @@ const simpletokenizer = (str) => {
         content = content.replace(processMatch[0], illustrationMatch[0] + processMatch[0]); // 将<illustration>部分插入<delete>部分的前面
     }
 
+    content = content.replace(/\n\n<(hidden|\/plot)>[\s\S]*?\n\n<extra_prompt>\s*/, '\n\nHuman:'); //sd prompt用
+
+    let altflag = false;
     if (content.includes('</hidden>')) {
         let segcontent = content.split('\n\nHuman:');
         let processedseg = segcontent.map(seg => {
             return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
         });
         let seglength = processedseg.length;
+        if (content.match(/Assistant: *.$/)) {altflag = true};
         (/Assistant: *.$/.test(content) && seglength > 1) && (processedseg[seglength - 2] = processedseg.splice(seglength - 1, 1, processedseg[seglength - 2])[0]);
         content = processedseg.join('\n\nHuman:');
-    } else {
-        content = content.replace(/\n\n<(hidden|\/plot)>[\s\S]*?\n\n<extra_prompt>\s*/, '\n\nHuman:'); //sd prompt用
     }
 
     //消除空XML tags或多余的\n
@@ -114,6 +116,12 @@ const simpletokenizer = (str) => {
     content = content.replace(/(?<=\n<(card|hidden|example)>\n)\s*/g, '');
     content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
     content = content.replace(/(?<=\n)\n(?=\n)/g, '');
+
+    let altsplitedContent = content.split('\n\nHuman:');
+    if (altsplitedContent.length >= 3 && Config.Settings.xmlPlot === 2) {
+      let lastIndex = altflag ? altsplitedContent.length - 2 : altsplitedContent.length - 1;
+      content = altsplitedContent.slice(0, lastIndex).join('\n\nHuman:') + '\n\nAltHuman:' + altsplitedContent.slice(lastIndex).join('\n\nHuman:');
+    }
 
     return content;
 };
@@ -225,6 +233,7 @@ const updateParams = res => {
                 console.log(`\nTunnel URL for outer websites: ${tunnel.url}/v1\n`);
             })
         }
+        totaltime = Config.CookieArray.length;
     }
     if (Config.CookieArray?.length > 0) {
         Config.Cookie = Config.CookieArray[currentIndex];
@@ -326,10 +335,12 @@ const updateParams = res => {
             currentIndex -= 1;
         }
         if (currentIndex === Config.CookieArray.length - 1) {
-            console.log(`※※※Cookie cleanup completed※※※\n\n`);
+            console.log(`\n\n※※※※※※※※※※※※※※※※※※\n※※※Cookie cleanup completed※※※\n※※※※※※※※※※※※※※※※※※\n\n`);
             process.exit();
         };
-        console.log(`length: ${Config.CookieArray.length}\nindex: ${currentIndex}\nstatus: ${res.status}`);
+        changetime += 1;
+        let percentage = (changetime / totaltime) * 100;
+        console.log(`progress: ${percentage.toFixed(2)}%\nlength: ${Config.CookieArray.length}\nindex: ${currentIndex}\nstatus: ${res.status}`);
         return CookieChanger.emit('ChangeCookie');
     }
 /**************************** */
@@ -597,6 +608,10 @@ const updateParams = res => {
                     retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature, type) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiments) {
+/****************************************************************/
+                            let splitprompt = prompt.split('\n\nAltHuman:');
+                            prompt = splitprompt[0];
+/****************************************************************/
                             attachments.push({
                                 extracted_content: (prompt),
                                 file_name: 'paste.txt',  //fileName(),
@@ -604,6 +619,9 @@ const updateParams = res => {
                                 file_type: 'txt'  //'text/plain'
                             });
                             prompt = 'r' === type ? Config.PromptExperimentFirst : Config.PromptExperimentNext;
+/****************************************************************/                            
+                            Config.Settings.xmlPlot===2 && (prompt = prompt + splitprompt[1]);
+/****************************************************************/                            
                         }
                         let res;
                         const body = {
