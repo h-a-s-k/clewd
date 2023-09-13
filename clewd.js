@@ -662,13 +662,20 @@ const Proxy = Server((async (req, res) => {
                         const sampleLogs = messagesClone.filter((message => message.name));
                         const mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
-                            const next = realLogs[idx + 1];
-                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && message.name && !(message.name in Replacements))(message);
+                            const next = mergedLogs[idx + 1];
+                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && null != message.name && !(message.name in Replacements))(message);
                             if (next) {
-                                if (message.name && next.name && message.name === next.name) {
-                                    message.content += '\n' + next.content;
-                                    next.merged = true;
-                                } else if (next.role === message.role) {
+                                if ('name' in message && 'name' in next) {
+                                    if (message.name === next.name) {
+                                        message.content += '\n' + next.content;
+                                        next.merged = true;
+                                    }
+                                } else if ('system' !== next.role) {
+                                    if (next.role === message.role) {
+                                        message.content += '\n' + next.content;
+                                        next.merged = true;
+                                    }
+                                } else {
                                     message.content += '\n' + next.content;
                                     next.merged = true;
                                 }
@@ -692,6 +699,7 @@ const Proxy = Server((async (req, res) => {
                             }
                             message.main = 0 === idx;
                             message.jailbreak = idx === systemMessages.length - 1;
+                            ' ' === message.content && (message.discard = true);
                         }));
                         Config.Settings.AllSamples && !Config.Settings.NoSamples && realLogs.forEach((message => {
                             if ('user' === message.role) {
