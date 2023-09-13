@@ -64,8 +64,8 @@ const simpletokenizer = (str) => {
     content = content.replace(/\n\nSystem:\s*/g, '\n\n');
 
     // 在第一个"[Start a new"前面加上"<example>"，在最后一个"[Start a new"前面加上"</example>"
-    let firstChatStart = content.indexOf('\n\n[Start a new');
-    let lastChatStart = content.lastIndexOf('\n\n[Start a new');
+    const firstChatStart = content.indexOf('\n\n[Start a new');
+    const lastChatStart = content.lastIndexOf('\n\n[Start a new');
     if (firstChatStart != -1) { 
         content = content.slice(0, firstChatStart) + '\n\n</card>\n\n<example>' + 
                 content.slice(firstChatStart, lastChatStart) + '\n\n</example>' + 
@@ -73,23 +73,23 @@ const simpletokenizer = (str) => {
     }
     
     // 之后的第一个"Assistant: "之前插入"\n\n<plot>"
-    let lastChatIndex = content.lastIndexOf('\n\n[Start a new');
+    const lastChatIndex = content.lastIndexOf('\n\n[Start a new');
     if (lastChatIndex != -1 && content.includes('</plot>')) { 
-        let assistantIndex = content.indexOf('\n\nAssistant:', lastChatIndex);
+        const assistantIndex = content.indexOf('\n\nAssistant:', lastChatIndex);
         if (assistantIndex != -1) {
             content = content.slice(0, assistantIndex) + '\n\n<plot>' + content.slice(assistantIndex);
         }
     }
 
-    let sexMatch = content.match(/\n##.*?\n<(sex|behavior)>[\s\S]*?<\/\1>\n/);
-    let processMatch = content.match(/\n##.*?\n<process>[\s\S]*?<\/process>\n/);
+    const sexMatch = content.match(/\n##.*?\n<(sex|behavior)>[\s\S]*?<\/\1>\n/);
+    const processMatch = content.match(/\n##.*?\n<process>[\s\S]*?<\/process>\n/);
   
     if (sexMatch && processMatch) {
         content = content.replace(sexMatch[0], ''); // 移除<sex>部分
         content = content.replace(processMatch[0], sexMatch[0] + processMatch[0]); // 将<sex>部分插入<delete>部分的前面
     }
 
-    let illustrationMatch = content.match(/\n##.*?\n<illustration>[\s\S]*?<\/illustration>\n/);
+    const illustrationMatch = content.match(/\n##.*?\n<illustration>[\s\S]*?<\/illustration>\n/);
 
     if (illustrationMatch && processMatch) {
         content = content.replace(illustrationMatch[0], ''); // 移除<illustration>部分
@@ -100,15 +100,24 @@ const simpletokenizer = (str) => {
 
     let altflag = false;
     if (content.includes('</hidden>')) {
-        let segcontent = content.split('\n\nHuman:');
-        let processedseg = segcontent.map(seg => {
+        const segcontent = content.split('\n\nHuman:');
+        const processedseg = segcontent.map(seg => {
             return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
         });
-        let seglength = processedseg.length;
+        const seglength = processedseg.length;
         if (content.match(/Assistant: *.$/)) {altflag = true};
         (/Assistant: *.$/.test(content) && seglength > 1) && (processedseg[seglength - 2] = processedseg.splice(seglength - 1, 1, processedseg[seglength - 2])[0]);
         content = processedseg.join('\n\nHuman:');
     }
+
+    const prevHumanIndex = content.indexOf("\n\nPrevHuman:");
+    const lastAssistantIndex = content.lastIndexOf("\n\nAssistant:");
+    if (prevHumanIndex && lastAssistantIndex) {
+        const contentToMove = content.substring(prevHumanIndex);
+        content = content.substring(0, prevHumanIndex);
+        content = content.substring(0, lastAssistantIndex) + contentToMove + content.substring(lastAssistantIndex);
+        content = content.replace(/PrevHuman:\s*/, '');
+    };
 
     //消除空XML tags或多余的\n
     content = content.replace(/(\n)<\/hidden>\n+?<hidden>\n/g, '');
@@ -117,9 +126,9 @@ const simpletokenizer = (str) => {
     content = content.replace(/\s*(?=\n<\/(card|hidden|example)>(\n|$))/g, '');
     content = content.replace(/(?<=\n)\n(?=\n)/g, '');
 
-    let altsplitedContent = content.split('\n\nHuman:');
+    const altsplitedContent = content.split('\n\nHuman:');
     if (altsplitedContent.length >= 3 && Config.Settings.xmlPlot === 2) {
-      let lastIndex = altflag ? altsplitedContent.length - 2 : altsplitedContent.length - 1;
+        const lastIndex = altflag ? altsplitedContent.length - 2 : altsplitedContent.length - 1;
       content = altsplitedContent.slice(0, lastIndex).join('\n\nHuman:') + '\n\nAltHuman:' + altsplitedContent.slice(lastIndex).join('\n\nHuman:');
     }
 
