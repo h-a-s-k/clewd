@@ -109,7 +109,7 @@ const simpletokenizer = (str) => {
     let advancedJB = false;
     const prevHumanIndex = content.indexOf("\n\nPrevHuman:");
     const lastAssistantIndex = content.lastIndexOf("\n\nAssistant:");
-    if (prevHumanIndex && lastAssistantIndex) {
+    if (prevHumanIndex != -1 && lastAssistantIndex != -1) {
         const contentToMove = content.substring(prevHumanIndex);
         advancedJB = true;
         content = content.substring(0, prevHumanIndex);
