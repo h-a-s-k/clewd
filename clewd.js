@@ -66,19 +66,13 @@ const simpletokenizer = (str) => {
     // 在第一个"[Start a new"前面加上"<example>"，在最后一个"[Start a new"前面加上"</example>"
     const firstChatStart = content.indexOf('\n\n[Start a new');
     const lastChatStart = content.lastIndexOf('\n\n[Start a new');
-    if (firstChatStart != -1) { 
-        content = content.slice(0, firstChatStart) + '\n\n</card>\n\n<example>' + 
-                content.slice(firstChatStart, lastChatStart) + '\n\n</example>' + 
-                content.slice(lastChatStart);
-    }
+    firstChatStart != -1 && (content = content.slice(0, firstChatStart) + '\n\n</card>\n\n<example>' + content.slice(firstChatStart, lastChatStart) + '\n\n</example>' + content.slice(lastChatStart));
     
     // 之后的第一个"Assistant: "之前插入"\n\n<plot>"
     const lastChatIndex = content.lastIndexOf('\n\n[Start a new');
     if (lastChatIndex != -1 && content.includes('</plot>')) { 
         const assistantIndex = content.indexOf('\n\nAssistant:', lastChatIndex);
-        if (assistantIndex != -1) {
-            content = content.slice(0, assistantIndex) + '\n\n<plot>' + content.slice(assistantIndex);
-        }
+        assistantIndex != -1 && (content = content.slice(0, assistantIndex) + '\n\n<plot>' + content.slice(assistantIndex));
     }
 
     const sexMatch = content.match(/\n##.*?\n<(sex|behavior)>[\s\S]*?<\/\1>\n/);
@@ -105,19 +99,23 @@ const simpletokenizer = (str) => {
             return seg.replace(/(\n\nAssistant:[\s\S]+?)(\n\n<hidden>[\s\S]+?<\/hidden>)/g, '$2$1');
         });
         const seglength = processedseg.length;
-        if (content.match(/Assistant: *.$/)) {altflag = true};
-        (/Assistant: *.$/.test(content) && seglength > 1) && (processedseg[seglength - 2] = processedseg.splice(seglength - 1, 1, processedseg[seglength - 2])[0]);
+        if (/Assistant: *.$/.test(content) && seglength > 1 && !processedseg[seglength - 2].includes('\n\nAssistant:')) {
+            altflag = true;
+            processedseg[seglength - 2] = processedseg.splice(seglength - 1, 1, processedseg[seglength - 2])[0];
+        }
         content = processedseg.join('\n\nHuman:');
     }
 
+    let advancedJB = false;
     const prevHumanIndex = content.indexOf("\n\nPrevHuman:");
     const lastAssistantIndex = content.lastIndexOf("\n\nAssistant:");
     if (prevHumanIndex && lastAssistantIndex) {
         const contentToMove = content.substring(prevHumanIndex);
+        advancedJB = true;
         content = content.substring(0, prevHumanIndex);
         content = content.substring(0, lastAssistantIndex) + contentToMove + content.substring(lastAssistantIndex);
         content = content.replace(/PrevHuman:\s*/, '');
-    };
+    }
 
     //消除空XML tags或多余的\n
     content = content.replace(/(\n)<\/hidden>\n+?<hidden>\n/g, '');
@@ -127,9 +125,9 @@ const simpletokenizer = (str) => {
     content = content.replace(/(?<=\n)\n(?=\n)/g, '');
 
     const altsplitedContent = content.split('\n\nHuman:');
-    if (altsplitedContent.length >= 3 && Config.Settings.xmlPlot === 2) {
+    if (altsplitedContent.length >= 3 && (Config.Settings.xmlPlot === 2 || advancedJB)) {
         const lastIndex = altflag ? altsplitedContent.length - 2 : altsplitedContent.length - 1;
-      content = altsplitedContent.slice(0, lastIndex).join('\n\nHuman:') + '\n\nAltHuman:' + altsplitedContent.slice(lastIndex).join('\n\nHuman:');
+        content = altsplitedContent.slice(0, lastIndex).join('\n\nHuman:') + '\n\nAltHuman:' + altsplitedContent.slice(lastIndex).join('\n\nHuman:');
     }
 
     return content;
