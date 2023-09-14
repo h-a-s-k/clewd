@@ -627,7 +627,7 @@ const updateParams = res => {
                             });
                             prompt = 'r' === type ? Config.PromptExperimentFirst : Config.PromptExperimentNext;
 /****************************************************************/                            
-                            Config.Settings.xmlPlot===2 && (prompt = prompt + splitprompt[1]);
+                            splitprompt.length > 1 && (prompt = prompt + splitprompt[1]);
 /****************************************************************/                            
                         }
                         let res;
