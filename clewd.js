@@ -125,7 +125,7 @@ const simpletokenizer = (str) => {
     content = content.replace(/(?<=\n)\n(?=\n)/g, '');
 
     const altsplitedContent = content.split('\n\nHuman:');
-    if (altsplitedContent.length >= 3 && Config.Settings.xmlPlot === 2) {
+    if (altsplitedContent.length >= 3 && Config.Settings.xmlPlot === 2 && advancedJB) {
         const lastIndex = altflag ? altsplitedContent.length - 2 : altsplitedContent.length - 1;
         content = altsplitedContent.slice(0, lastIndex).join('\n\nHuman:') + '\n\nAltHuman:' + altsplitedContent.slice(lastIndex).join('\n\nHuman:');
     }
