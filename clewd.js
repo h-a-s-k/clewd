@@ -526,13 +526,20 @@ const updateParams = res => {
                     let {prompt, systems} = ((messages, type) => {
                         const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i, rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i, messagesClone = JSON.parse(JSON.stringify(messages)), realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role))), sampleLogs = messagesClone.filter((message => message.name)), mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
-                            const next = realLogs[idx + 1];
+                            const next = mergedLogs[idx + 1];
                             message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && null != message.name && !(message.name in Replacements))(message);
                             if (next) {
-                                if (message.name && next.name && message.name === next.name) {
-                                    message.content += '\n\n' + next.content; //message.content += '\n' + next.content;
-                                    next.merged = true;
-                                } else if (next.role === message.role) {
+                                if ('name' in message && 'name' in next) {
+                                    if (message.name === next.name) {
+                                        message.content += '\n\n' + next.content; //message.content += '\n' + next.content;
+                                        next.merged = true;
+                                    }
+                                } else if ('system' !== next.role) {
+                                    if (next.role === message.role) {
+                                        message.content += '\n\n' + next.content; //message.content += '\n' + next.content;
+                                        next.merged = true;
+                                    }
+                                } else {
                                     message.content += '\n\n' + next.content; //message.content += '\n' + next.content;
                                     next.merged = true;
                                 }
@@ -542,7 +549,7 @@ const updateParams = res => {
                         lastAssistant && Config.Settings.StripAssistant && (lastAssistant.strip = true);
                         const lastUser = realLogs.findLast((message => !message.merged && 'user' === message.role));
                         lastUser && Config.Settings.StripHuman && (lastUser.strip = true);
-                        const systemMessages = messagesClone.filter((message => 'system' === message.role && !message.name));
+                        const systemMessages = messagesClone.filter((message => 'system' === message.role && !('name' in message)));
                         systemMessages.forEach(((message, idx) => {
                             const scenario = message.content.match(rgxScenario)?.[1], personality = message.content.match(rgxPerson);
                             if (scenario) {
@@ -555,6 +562,7 @@ const updateParams = res => {
                             }
                             message.main = 0 === idx;
                             message.jailbreak = idx === systemMessages.length - 1;
+                            ' ' === message.content && (message.discard = true);
                         }));
                         Config.Settings.AllSamples && !Config.Settings.NoSamples && realLogs.forEach((message => {
                             if (![ lastUser, lastAssistant ].includes(message)) {

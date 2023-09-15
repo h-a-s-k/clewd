@@ -12,6 +12,12 @@
 </a>
 </div>
 
+# 4.6
+
+fixed major bug in the prompt build logic which was causing problems like the AI refering to old messages erroneously, ignoring your latest message, etc
+
+added superfetch for armv7
+
 # 4.5
 
 expanded superfetch to fix some errors
