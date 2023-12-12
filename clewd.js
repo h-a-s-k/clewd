@@ -176,9 +176,9 @@ const updateParams = res => {
     switch (req.url) {
       case '/v1/models':
         res.json({
-            data: [ {
-                id: AI.mdl()
-            } ]
+            data: AI.mdl().map((name => ({
+                id: name
+            })))
         });
         break;
 
@@ -229,7 +229,13 @@ const updateParams = res => {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
                         throw Error('Only one can be used at the same time: AllSamples/NoSamples');
                     }
-                    const model = AI.mdl();
+                    const model = body.model;
+                    if (model === AI.mdl()[0]) {
+                        return;
+                    }
+                    if (!/claude-.*/.test(model)) {
+                        throw Error('Invalid model selected: ' + model);
+                    }
                     curPrompt = {
                         firstUser: messages.find((message => 'user' === message.role)),
                         firstSystem: messages.find((message => 'system' === message.role)),
@@ -262,7 +268,7 @@ const updateParams = res => {
                                 completion: {
                                     prompt: '',
                                     timezone: AI.zone(),
-                                    model: model || AI.mdl()
+                                    model
                                 },
                                 organization_uuid: uuidOrg,
                                 conversation_uuid: Conversation.uuid,
@@ -410,7 +416,7 @@ const updateParams = res => {
                     })(messages, type);
                     console.log(`${model} [[2m${type}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     'R' !== type || prompt || (prompt = '...regen...');
-                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
+                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### MODEL: ${model}\n####### PROMPT (${type}):\n${prompt}\n--\n####### REPLY:\n`);
                     retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature, type) => {
                         const attachments = [];
                         if (Config.Settings.PromptExperiments) {
@@ -430,11 +436,11 @@ const updateParams = res => {
                                 },
                                 prompt: prompt || '',
                                 timezone: AI.zone(),
-                                model: model || AI.mdl()
+                                model
                             },
                             organization_uuid: uuidOrg,
                             conversation_uuid: Conversation.uuid,
-                            text: prompt,
+                            text: prompt || '',
                             attachments
                         };
                         let headers = {
@@ -459,7 +465,7 @@ const updateParams = res => {
                         version: Main,
                         minSize: Config.BufferSize,
                         model,
-                        streaming: body.stream,
+                        streaming: null != body.stream,
                         abortControl,
                         source: fetchAPI
                     }, Logger);
