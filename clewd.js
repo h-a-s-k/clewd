@@ -197,7 +197,9 @@ const updateParams = res => {
             req.on('end', (async () => {
                 let clewdStream, titleTimer, samePrompt = false, shouldRenew = true, retryRegen = false;
                 try {
-                    const body = JSON.parse(Buffer.concat(buffer).toString()), temperature = Math.max(.1, Math.min(1, body.temperature));
+                    const body = JSON.parse(Buffer.concat(buffer).toString());
+                    let {temperature} = body;
+                    temperature = Math.max(.1, Math.min(1, temperature));
                     let {messages} = body;
                     if (messages?.length < 1) {
                         throw Error('Select OpenAI as completion source');
@@ -430,25 +432,20 @@ const updateParams = res => {
                         }
                         let res;
                         const body = {
-                            completion: {
-                                ...Config.Settings.PassParams && {
-                                    temperature
-                                },
-                                prompt: prompt || '',
-                                timezone: AI.zone(),
-                                model
+                            attachments,
+                            model,
+                            ...Config.Settings.PassParams && {
+                                temperature
                             },
-                            organization_uuid: uuidOrg,
-                            conversation_uuid: Conversation.uuid,
-                            text: prompt || '',
-                            attachments
+                            prompt: prompt || '',
+                            timezone: AI.zone()
                         };
                         let headers = {
                             ...AI.hdr(Conversation.uuid || ''),
                             Accept: 'text/event-stream',
                             Cookie: getCookies()
                         };
-                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/append_message', {
+                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`, {
                             stream: true,
                             signal,
                             method: 'POST',

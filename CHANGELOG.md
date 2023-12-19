@@ -12,6 +12,12 @@
 </a>
 </div>
 
+# 4.8
+
+up to date route
+
+fixed errors not showing on frontend
+
 # 4.7
 
 added multiple model options in case you subscribe to their plans. some based on their docs, some on rumors. stick to 2.1 if you're a free user
