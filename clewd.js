@@ -483,7 +483,7 @@ const updateParams = res => {
                                 param: null,
                                 code: err.code || 500
                             }
-                        });
+                        }, 500);
                     }
                 }
                 clearInterval(titleTimer);

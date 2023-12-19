@@ -126,8 +126,6 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
 > **AllSamples**: true
 
-> **StripAssistant**: true (add prefill to jailbreak in this case)
-
 ## Contact
 
 - hask1911@proton.me
