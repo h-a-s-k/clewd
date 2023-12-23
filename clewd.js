@@ -432,20 +432,25 @@ const updateParams = res => {
                         }
                         let res;
                         const body = {
-                            attachments,
-                            model,
-                            ...Config.Settings.PassParams && {
-                                temperature
+                            completion: {
+                                ...Config.Settings.PassParams && {
+                                    temperature
+                                },
+                                prompt: prompt || '',
+                                timezone: AI.zone(),
+                                model
                             },
-                            prompt: prompt || '',
-                            timezone: AI.zone()
+                            conversation_uuid: Conversation.uuid,
+                            organization_uuid: uuidOrg,
+                            text: prompt || '',
+                            attachments
                         };
                         let headers = {
                             ...AI.hdr(Conversation.uuid || ''),
                             Accept: 'text/event-stream',
                             Cookie: getCookies()
                         };
-                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`, {
+                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/append_message', {
                             stream: true,
                             signal,
                             method: 'POST',

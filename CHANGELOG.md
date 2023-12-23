@@ -18,6 +18,12 @@ up to date route
 
 fixed errors not showing on frontend
 
+> **Hotfix 1**
+
+reverted route
+
+limited external models shown to website ones
+
 # 4.7
 
 added multiple model options in case you subscribe to their plans. some based on their docs, some on rumors. stick to 2.1 if you're a free user
