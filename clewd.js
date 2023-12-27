@@ -467,7 +467,7 @@ const updateParams = res => {
                         version: Main,
                         minSize: Config.BufferSize,
                         model,
-                        streaming: null != body.stream,
+                        streaming: true === body.stream,
                         abortControl,
                         source: fetchAPI
                     }, Logger);
@@ -508,9 +508,10 @@ const updateParams = res => {
       case '/v1/complete':
         res.json({
             error: {
-                message: 'clewd: Set "Chat Completion source" to OpenAI instead of Claude. Enable "External" models aswell'
+                message: 'clewd: Set "Chat Completion source" to OpenAI instead of Claude. Enable "External" models aswell',
+                code: 404
             }
-        });
+        }, 404);
         break;
 
       default:
