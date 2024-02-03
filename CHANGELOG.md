@@ -30,6 +30,12 @@ fixed "streaming off" not being detected
 
 fixed more errors not showing on frontend
 
+> **Hotfix 3**
+
+fixed some names not using spaces properly
+
+fixed endpoint
+
 # 4.7
 
 added multiple model options in case you subscribe to their plans. some based on their docs, some on rumors. stick to 2.1 if you're a free user

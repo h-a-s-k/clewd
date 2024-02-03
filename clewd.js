@@ -408,7 +408,7 @@ const updateParams = res => {
                             }
                             let spacing = '';
                             idx > 0 && (spacing = systemMessages.includes(message) ? '\n' : '\n\n');
-                            const prefix = message.customname ? message.name + ': ' : 'system' !== message.role || message.name ? Replacements[message.name || message.role] + ': ' : '' + Replacements[message.role];
+                            const prefix = message.customname ? message.name.replaceAll('_', ' ') + ': ' : 'system' !== message.role || message.name ? Replacements[message.name || message.role] + ': ' : '' + Replacements[message.role];
                             return `${spacing}${message.strip ? '' : prefix}${'system' === message.role ? message.content : message.content.trim()}`;
                         }));
                         return {
@@ -425,32 +425,28 @@ const updateParams = res => {
                             attachments.push({
                                 extracted_content: prompt,
                                 file_name: fileName(),
-                                file_size: Buffer.from(prompt).byteLength,
-                                file_type: 'text/plain'
+                                file_type: 'text/plain',
+                                file_size: Buffer.from(prompt).byteLength
                             });
                             prompt = 'r' === type ? Config.PromptExperimentFirst : Config.PromptExperimentNext;
                         }
                         let res;
                         const body = {
-                            completion: {
-                                ...Config.Settings.PassParams && {
-                                    temperature
-                                },
-                                prompt: prompt || '',
-                                timezone: AI.zone(),
-                                model
+                            attachments,
+                            files: [],
+                            model,
+                            ...Config.Settings.PassParams && {
+                                temperature
                             },
-                            conversation_uuid: Conversation.uuid,
-                            organization_uuid: uuidOrg,
-                            text: prompt || '',
-                            attachments
+                            prompt: prompt || '',
+                            timezone: AI.zone()
                         };
                         let headers = {
                             ...AI.hdr(Conversation.uuid || ''),
                             Accept: 'text/event-stream',
                             Cookie: getCookies()
                         };
-                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/append_message', {
+                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`, {
                             stream: true,
                             signal,
                             method: 'POST',
