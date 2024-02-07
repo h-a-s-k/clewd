@@ -10,9 +10,14 @@ yarn-error.log*
 *.dev.js
 
 # Clewd
+config.js
 cookies.json
 cookies.js
 cookies.ini
+log.txt
+cfg
+pyld
+hdr
 
 # npm
 package-lock.json

@@ -39,13 +39,14 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
     * true will use an alternate method to get past the `We are unable to serve your request` error
     * false won't use this method and you may get the error again
 
- - `PreventImperson`: (false)/true
+ - `PreventImperson`: (true)/false
     * true trims the bot reply immediately if he says "Human:", "Assistant:", "H:" or "A:"
     * making it so it doesn't hallucinate speaking as you __(chance of missing some spicy things)__
 
  - `PromptExperiments`: (true)/false
     * true is an alternative way to send your prompt to the AI
     * experiment before setting to false
+	* incompatible with `RenewAlways` set to false
 
  - `RetryRegenerate`: (false)/true
     * true uses the AI's own retry mechanism when you regenerate on your frontend
@@ -54,23 +55,22 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
  - `SystemExperiments`: (true)/false
     * only has any effect when `RenewAlways` is false
-    * true alternates between Main+JB+User and JB+User
+    * true alternates between Main+Jailbreak+User and Jailbreak+User
     * false doesn't alternate
 
  - `RenewAlways`: (true)/false
     * true makes a new conversation context each time
-    * false *tries* to reutilize the same old conversation, sending only your actual last message each time, taking into consideration `SystemExperiments`
+    * false *tries* to reutilize the same old conversation, sending only the actual last message each time, taking into consideration `SystemExperiments` (will not work properly unless your Main is the first system prompt and your Jailbreak is the last)
 
  - `StripAssistant`: (false)/true
-    * true strips the "Assistant:" prefix from the last assistant message
-    * (check your log.txt to see where it is being stripped, not the same as pre 3.0)
+    * true strips the "Assistant:" prefix from the last assistant message (if it's the last message)
 
  - `StripHuman`: (false)/true
-    * true strips the "Human:" prefix from the last human message
+    * true strips the "Human:" prefix from the last human message (if it's the last message)
 
  - `AllSamples`: (false)/true
     * mutually exclusive with `NoSamples`
-    * true converts all real dialogue to "sample dialogue" except the last Assistant and Human
+    * true converts all real dialogues to "sample dialogues" (except the last Assistant and Human messages)
     * you're "H" and the AI is "A"
     * whatever the AI replies with is kept (only outgoing)
     * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
@@ -79,7 +79,7 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
  - `NoSamples`: (false)/true
     * mutually exclusive with `AllSamples`
-    * true converts all "sample dialogue" to real dialogue
+    * true converts all "sample dialogues" to real dialogues
     * you're "Human" and the AI is "Assistant"
     * whatever the AI replies with is kept (only outgoing)
     * [see this](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly) for more information
@@ -107,15 +107,17 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 ## Examples
 
 **safe setup**
-> **PreventImperson**: false (higher chance of spicy stuff)
+> **PreventImperson**: true
 
 > **RenewAlways**: true
+
+> **PromptExperiments**: true
+
+> **PreserveChats**: true
 
 ---
 
 **experimental setup**
-> **PromptExperiments**: true
-
 > **SystemExperiments**: true
 
 > **RetryRegenerate**: true
@@ -123,6 +125,8 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 > **PreventImperson**: true
 
 > **RenewAlways**: false
+
+> **PromptExperiments**: false
 
 > **AllSamples**: true
 

@@ -12,39 +12,81 @@
 </a>
 </div>
 
+# 4.9
+
+> **Initial login message changes**
+
+now shows account type (free/pro)
+
+now shows the assigned model according to the website (haven't tested pro accounts)
+
+> **StripAssistant** and **StripHuman** changed
+
+should only happen on actual last messages
+
+> **Superfetch** changed
+
+added windows 32bit support
+
+disabled arm support as it was not working, attempt to fix it will be next month
+
+now cleans up properly after usage
+
+> **Other changes**
+
+`PreventImperson` is now set to true by default (your config.js won't be changed automatically)
+
+no longer trim system messages
+
+no more messing with `[Start a new Chat]` for example chats since [#1689](https://github.com/SillyTavern/SillyTavern/blob/515e3859eccb5d54a90e21a2413f6f8d8d58815e/default/settings.json#L565)
+
+upgraded prompt conversion from **[REDACTED]** proxy
+
+no longer delay completions if `PreventImperson` is false
+
+match a couple extra unicode colon characters
+
+removed warning from model list
+
+refactoring
+
+> **Known issues**
+
+old chats are not being deleted
+
 # 4.8
 
-up to date route
+test endpoint
 
 fixed errors not showing on frontend
 
-> **Hotfix 1**
+### **Hotfix 1**
 
-reverted route
+reverted endpoint
 
 limited external models shown to website ones
 
-> **Hotfix 2**
+### **Hotfix 2**
 
 fixed "streaming off" not being detected
 
 fixed more errors not showing on frontend
 
-> **Hotfix 3**
+### **Hotfix 3**
 
-fixed some names not using spaces properly
+fixed some names not using spaces properly when "Add character names" is on
 
 fixed endpoint
 
 # 4.7
 
-added multiple model options in case you subscribe to their plans. some based on their docs, some on rumors. stick to 2.1 if you're a free user
+added multiple model options in case you subscribe to their plans. some based on their docs, some on rumors
 
 # 4.6
 
 fixed major bug in the prompt build logic which was causing problems like the AI refering to old messages erroneously, ignoring your latest message, etc
 
-added superfetch for armv7
+added superfetch for armv7 (does not work at the moment)
 
 # 4.5
 
@@ -82,7 +124,7 @@ a fix for "Received no valid replies at all" on >=20k ctx (tested 35k)
 
 was only relevant to pre-4.0
 
-> **Hotfix 1**
+### **Hotfix 1**
 
 fixed another source of "Received no valid replies at all"
 
@@ -139,13 +181,13 @@ tested on linux and windows
 
 > **SuperfetchHost** and **SuperfetchPort** removed
 
-> **Minor changes**
+> **Other changes**
 
-split code into multiple files
+- split code into multiple files
 
-clewd-superfetch and clewd are now the same package
+- clewd-superfetch and clewd are now the same package
 
-removed all dependencies
+- removed all dependencies
 
 **git** [added to requirements](https://gitgud.io/ahsk/clewd/#requirements) (highly recommended so update scripts work, otherwise do a clean install)
 
@@ -172,9 +214,9 @@ controls how much time in seconds until it times out
 
 default 120
 
-> **Minor changes**
+> **Other changes**
 
-new binaries for windows/linux/mac/arm/freebsd
+- new binaries for windows/linux/mac/arm/freebsd
 
 # 3.7
 
@@ -195,11 +237,11 @@ both streaming on/off working
 
 now also works with Superfetch
 
-> **Minor changes**
+> **Other changes**
 
-error handling for Superfetch (can't do much)
+- error handling for Superfetch (can't do much)
 
-support name prefixes for group chats when "Add character names" is enabled
+- support name prefixes for group chats when "Add character names" is enabled
 
 > if you were having trouble with 3.5 but 3.1 or 3.4 were fine, update to this and enable/disable **Superfetch** as you see fit
 
@@ -231,7 +273,14 @@ those are hardcoded on ST and will stay available until they're not
 
 scenarios and char description are extracted from their hardcoded strings and replaced by the format you set
 
+> **ExampleChatPrefix** and **RealChatPrefix**
+
+those are hardcoded on ST and will stay available until they're not
+
+- **ExampleChatPrefix** default changed
+
 - **RealChatPrefix** default is now empty
+
 
 > **AllSamples** changed
 
@@ -241,11 +290,17 @@ no longer excludes the last two messages when transforming
 
 moved to Settings
 
-> **Minor changes**
+> **Other changes**
 
-- Error handling changes
+- error handling changes
 
-- RenewAlways is now more stable when set to false. still, regenerate once if you swap characters
+- `RenewAlways` is now more stable when set to false. still, regenerate once if you swap characters
+
+- `[Start a new chat]` no longer excluded, now replaced by **ExampleChatPrefix**/**RealChatPrefix**
+
+### **Hotfix 3**
+
+> **ExampleChatPrefix** and **RealChatPrefix** removed
 
 # 3.3
 added \[DONE\] to end of streams
@@ -366,7 +421,7 @@ example of custom `Main` prompt with XML tags wrapping around
 {{JAILBREAK}}
 ```
 
-> **Minor changes**
+> **Other changes**
 
 - Clewd errors now should show as such on your frontend
 
@@ -376,7 +431,7 @@ example of custom `Main` prompt with XML tags wrapping around
 
 - settings that aren't on their default are now displayed in yellow on startup
 
-- "[Start a new chat]" is excluded from system prompts
+- `[Start a new Chat]` is excluded from system prompts
 
 
 # 2.7
@@ -392,7 +447,7 @@ If set to true, will replace any cases of **outgoing** H/A, to Human/Assistant
 
 now has **no effect** on incoming, [more info](https://docs.anthropic.com/claude/docs/prompt-troubleshooting-checklist#the-prompt-is-formatted-correctly)
 
->**PreventImperson** updated
+>**PreventImperson** changed
 
 now also stops on A: or Assistant:
 another check added, *should* impersonate less often
