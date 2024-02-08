@@ -4,7 +4,7 @@
   "description": ":^)",
   "main": "clewd.js",
   "engines": {
-    "node": ">=20.4.0"
+    "node": ">=20.11.0"
   },
   "scripts": {
     "run": "node clewd.js"
@@ -36,6 +36,6 @@
     "url": "https://gitgud.io/ahsk/clewd/-/issues"
   },
   "dependencies": {
-    "ws": "^8.13.0"
+    "ws": "^8.16.0"
   }
 }

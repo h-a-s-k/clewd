@@ -4,76 +4,30 @@
 */
 'use strict';
 
-const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http');
+const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), FS = require('node:fs'), Path = require('node:path'), Decoder = new TextDecoder, Encoder = new TextEncoder;
 
-const {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto');
+let ChangedSettings, UnknownSettings, Logger, Superfetch = null;
 
-const {TransformStream, ReadableStream} = require('node:stream/web');
-
-const {Readable, Writable} = require('node:stream');
-
-const {Blob} = require('node:buffer');
-
-const FS = require('node:fs');
-
-const Path = require('node:path');
-
-const Decoder = new TextDecoder;
-
-const Encoder = new TextEncoder;
-
-let Superfetch = null;
-
-let ChangedSettings;
-
-let UnknownSettings;
-
-let Logger;
-
-const ConfigPath = Path.join(__dirname, './config.js');
-
-const LogPath = Path.join(__dirname, './log.txt');
-
-const Replacements = {
+const ConfigPath = Path.join(__dirname, './config.js'), LogPath = Path.join(__dirname, './log.txt'), Replacements = {
     user: 'Human',
     assistant: 'Assistant',
     system: '',
     example_user: 'H',
     example_assistant: 'A'
-};
-
-const DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ...':', ...'\\n' ]) ].filter((char => ' ' !== char)).sort();
-
-const Conversation = {
+}, DangerChars = [ ...new Set([ ...Object.values(Replacements).join(''), ...'\n', ':', ...'\\n' ]) ].filter((char => ' ' !== char)).sort(), Conversation = {
     char: null,
     uuid: null,
     depth: 0
-};
+}, cookies = {};
 
-const cookies = {};
-
-let curPrompt = {};
-
-let prevPrompt = {};
-
-let prevMessages = [];
-
-let prevImpersonated = false;
-
-let uuidOrg;
-
-/**
- * Edit settings in your config.js instead
- * these are the defaults and change every update
- * @preserve
- */ let Config = {
+let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonated = false, Config = {
     Cookie: '',
     Ip: '127.0.0.1',
     Port: 8444,
     BufferSize: 8,
     SystemInterval: 3,
-    PersonalityFormat: '{{CHAR}}\'s personality: {{PERSONALITY}}',
-    ScenarioFormat: 'Dialogue scenario: {{SCENARIO}}',
+    PersonalityFormat: '{{char}}\'s personality: {{personality}}',
+    ScenarioFormat: 'Dialogue scenario: {{scenario}}',
     Settings: {
         RenewAlways: true,
         RetryRegenerate: false,
@@ -95,9 +49,7 @@ let uuidOrg;
     SuperfetchTimeout: 120
 };
 
-const {version: Version} = require('./package.json');
-
-const Main = 'clewd v' + Version;
+const {version: Version} = require('./package.json'), Main = 'clewd v' + Version;
 
 ServerResponse.prototype.json = async function(body, statusCode = 200, headers) {
     body = body instanceof Promise ? await body : body;
@@ -115,7 +67,7 @@ Array.prototype.sample = function() {
 
 const AI = {
     end: () => Buffer.from([ 104, 116, 116, 112, 115, 58, 47, 47, 99, 108, 97, 117, 100, 101, 46, 97, 105 ]).toString(),
-    mdl: () => Buffer.from([ 99, 108, 97, 117, 100, 101, 45, 50, 46, 49 ]).toString(),
+    mdl: () => JSON.parse(Buffer.from([ 91, 34, 99, 108, 97, 117, 100, 101, 45, 50, 46, 49, 34, 44, 34, 99, 108, 97, 117, 100, 101, 45, 50, 46, 48, 34, 44, 34, 99, 108, 97, 117, 100, 101, 45, 105, 110, 115, 116, 97, 110, 116, 45, 49, 46, 50, 34, 93 ]).toString()),
     zone: () => Buffer.from([ 65, 109, 101, 114, 105, 99, 97, 47, 78, 101, 119, 95, 89, 111, 114, 107 ]).toString(),
     agent: () => Buffer.from([ 77, 111, 122, 105, 108, 108, 97, 47, 53, 46, 48, 32, 40, 77, 97, 99, 105, 110, 116, 111, 115, 104, 59, 32, 73, 110, 116, 101, 108, 32, 77, 97, 99, 32, 79, 83, 32, 88, 32, 49, 48, 95, 49, 53, 95, 55, 41, 32, 65, 112, 112, 108, 101, 87, 101, 98, 75, 105, 116, 47, 53, 51, 55, 46, 51, 54, 32, 40, 75, 72, 84, 77, 76, 44, 32, 108, 105, 107, 101, 32, 71, 101, 99, 107, 111, 41, 32, 67, 104, 114, 111, 109, 101, 47, 49, 49, 52, 46, 48, 46, 48, 46, 48, 32, 83, 97, 102, 97, 114, 105, 47, 53, 51, 55, 46, 51, 54, 32, 69, 100, 103, 47, 49, 49, 52, 46, 48, 46, 49, 56, 50, 51, 46, 55, 57 ]).toString(),
     cp: () => Buffer.from([ 55, 55, 49, 44, 52, 56, 54, 53, 45, 52, 56, 54, 54, 45, 52, 56, 54, 55, 45, 52, 57, 49, 57, 53, 45, 52, 57, 49, 57, 57, 45, 52, 57, 49, 57, 54, 45, 52, 57, 50, 48, 48, 45, 53, 50, 51, 57, 51, 45, 53, 50, 51, 57, 50, 45, 52, 57, 49, 55, 49, 45, 52, 57, 49, 55, 50, 45, 49, 53, 54, 45, 49, 53, 55, 45, 52, 55, 45, 53, 51, 44, 48, 45, 50, 51, 45, 54, 53, 50, 56, 49, 45, 49, 48, 45, 49, 49, 45, 51, 53, 45, 49, 54, 45, 53, 45, 49, 51, 45, 49, 56, 45, 53, 49, 45, 52, 53, 45, 52, 51, 45, 50, 55, 45, 49, 55, 53, 49, 51, 45, 50, 49, 44, 50, 57, 45, 50, 51, 45, 50, 52, 44, 48 ]).toString(),
@@ -124,9 +76,7 @@ const AI = {
         Referer: AI.end() + '/',
         Origin: '' + AI.end()
     })
-};
-
-const fileName = () => {
+}, fileName = () => {
     const len = randomInt(5, 15);
     let name = randomBytes(len).toString('hex');
     for (let i = 0; i < name.length; i++) {
@@ -134,24 +84,16 @@ const fileName = () => {
         isNaN(char) && randomInt(1, 5) % 2 == 0 && ' ' !== name.charAt(i - 1) && (name = name.slice(0, i) + ' ' + name.slice(i));
     }
     return name + '.txt';
-};
-
-const bytesToSize = (bytes = 0) => {
+}, bytesToSize = (bytes = 0) => {
     const b = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
     if (0 === bytes) {
         return '0 B';
     }
     const c = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 4);
     return 0 === c ? `${bytes} ${b[c]}` : `${(bytes / 1024 ** c).toFixed(1)} ${b[c]}`;
-};
-
-const genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n');
-
-const updateParams = res => {
+}, genericFixes = text => text.replace(/(\r\n|\r|\\n)/gm, '\n'), updateParams = res => {
     updateCookies(res);
-};
-
-const updateCookies = res => {
+}, updateCookies = res => {
     let cookieNew = '';
     res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res?.superfetch ? cookieNew = res.headers?.['Set-Cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
     if (!cookieNew) {
@@ -160,18 +102,16 @@ const updateCookies = res => {
     let cookieArr = cookieNew.split(/;\s?/gi).filter((prop => false === /^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*/i.test(prop)));
     for (const cookie of cookieArr) {
         const divide = cookie.split(/^(.*?)=\s*(.*)/);
-        const cookieName = divide[1];
-        const cookieVal = divide[2];
+        if (1 === divide.length) {
+            continue;
+        }
+        const cookieName = divide[1], cookieVal = divide[2];
         cookies[cookieName] = cookieVal;
     }
-};
-
-const getCookies = () => {
+}, getCookies = () => {
     const cookieNames = Object.keys(cookies);
     return cookieNames.map(((name, idx) => `${name}=${cookies[name]}${idx === cookieNames.length - 1 ? '' : ';'}`)).join(' ').replace(/(\s+)$/gi, '');
-};
-
-const superfetch = async params => {
+}, superfetch = async params => {
     let res = {};
     const options = {
         url: params.url,
@@ -198,9 +138,7 @@ const superfetch = async params => {
     }
     res.superfetch = true;
     return res;
-};
-
-const deleteChat = async uuid => {
+}, deleteChat = async uuid => {
     if (!uuid) {
         return;
     }
@@ -219,14 +157,10 @@ const deleteChat = async uuid => {
         method: 'DELETE'
     });
     updateParams(res);
-};
-
-const setTitle = title => {
+}, setTitle = title => {
     title = `${Main} - ${title}`;
     process.title !== title && (process.title = title);
-};
-
-const onListen = async () => {
+}, onListen = async () => {
     if ('SET YOUR COOKIE HERE' === Config.Cookie || Config.Cookie?.length < 1) {
         throw Error('Set your cookie inside config.js');
     }
@@ -243,8 +177,7 @@ const onListen = async () => {
             ...AI.hdr(),
             Cookie: getCookies()
         }
-    });
-    const accInfo = (await accRes.json())?.[0];
+    }), accInfo = (await accRes.json())?.[0];
     if (!accInfo || accInfo.error) {
         throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText}"`);
     }
@@ -260,8 +193,7 @@ const onListen = async () => {
     });
     uuidOrg = accInfo?.uuid;
     if (accInfo?.active_flags.length > 0) {
-        const now = new Date;
-        const formattedFlags = accInfo.active_flags.map((flag => {
+        const now = new Date, formattedFlags = accInfo.active_flags.map((flag => {
             const days = ((new Date(flag.expires_at).getTime() - now.getTime()) / 864e5).toFixed(2);
             return {
                 type: flag.type,
@@ -294,18 +226,14 @@ const onListen = async () => {
             ...AI.hdr(),
             Cookie: getCookies()
         }
-    });
-    const conversations = await convRes.json();
+    }), conversations = await convRes.json();
     updateParams(convRes);
     conversations.length > 0 && await Promise.all(conversations.map((conv => deleteChat(conv.uuid))));
-};
-
-const checkResErr = async res => {
+}, checkResErr = async res => {
     if (res.status < 200 || res.status >= 300) {
         let err = Error('Unexpected response code: ' + res.status);
         try {
-            let json;
-            let error;
+            let json, error;
             if (res.superfetch) {
                 error = {
                     message: res.body,
@@ -375,8 +303,7 @@ class ClewdStream extends TransformStream {
         this.#recvLength = 0;
     }
     #collectBuf() {
-        const valid = [ ...this.#compOK ];
-        const selection = valid.splice(0, Math.min(this.#minSize, valid.length)).join('');
+        const valid = [ ...this.#compOK ], selection = valid.splice(0, Math.min(this.#minSize, valid.length)).join('');
         this.#compOK = valid.join('');
         return selection;
     }
@@ -400,7 +327,7 @@ class ClewdStream extends TransformStream {
     #print() {}
     #done(controller) {
         this.#print();
-        330 === this.#recvLength && (this.#hardCensor = true);
+        328 === this.#recvLength && (this.#hardCensor = true);
         if (this.#streaming) {
             this.#compOK.length > 0 && controller.enqueue(this.#build(this.#compOK));
             controller.enqueue('data: [DONE]\n\n');
@@ -416,14 +343,12 @@ class ClewdStream extends TransformStream {
                 const matchesH = text.match(/(?:(?:\\n)|\n){2}((?:Human|H): ?)/gm);
                 matchesH?.length > 0 && (location = last ? text.lastIndexOf(matchesH[matchesH.length - 1]) : text.indexOf(matchesH[0]));
                 return location;
-            })(text, last);
-            const fakeAssistant = ((text, last = false) => {
+            })(text, last), fakeAssistant = ((text, last = false) => {
                 let location = -1;
                 const matchesA = text.match(/(?:(?:\\n)|\n){2}((?:Assistant|A): ?)/gm);
                 matchesA?.length > 0 && (location = last ? text.lastIndexOf(matchesA[matchesA.length - 1]) : text.indexOf(matchesA[0]));
                 return location;
-            })(text, last);
-            const fakes = [ fakeHuman, fakeAssistant ].filter((idx => idx > -1)).sort();
+            })(text, last), fakes = [ fakeHuman, fakeAssistant ].filter((idx => idx > -1)).sort();
             location = last ? fakes.reverse()[0] : fakes[0];
             return isNaN(location) ? -1 : location;
         })(reply);
@@ -441,10 +366,14 @@ class ClewdStream extends TransformStream {
         }
     }
     #parseMatch(match, controller) {
-        let parsed;
-        let delayChunk;
+        let parsed, delayChunk;
         try {
+            match = match.replace(/^event: (?:completion|ping)[\n]*data: {/i, '{').trim();
             parsed = JSON.parse(match);
+            if ('ping' === parsed.type) {
+                this.#compRaw = '';
+                return;
+            }
             if (parsed.error) {
                 parsed.completion = `## ${Main}\n**${AI.end()} error**:\n\n\`\`\`${JSON.stringify(parsed.error, null, 4)}\`\`\``;
                 console.warn('[31mwebsite err[0m');
@@ -472,11 +401,10 @@ class ClewdStream extends TransformStream {
     #handle(chunk, controller) {
         'string' == typeof chunk && (chunk = Encoder.encode(chunk));
         this.#recvLength += chunk.byteLength || 0;
-        chunk = Decoder.decode(chunk).replace(/^data: {/gim, '{').replace(/\s+$/gim, '');
-        this.#compRaw += chunk;
+        this.#compRaw += Decoder.decode(chunk);
         const matches = this.#compRaw.split(/(\n){1}/gm).filter((match => match.length > 0 && '\n' !== match));
         for (const match of matches) {
-            this.#parseMatch(match, controller);
+            [ 'event: completion', 'event: ping' ].includes(match) || this.#parseMatch(match, controller);
         }
     }
 }
@@ -487,9 +415,7 @@ const writeSettings = async (config, firstRun = false) => {
         console.warn('[33mconfig file created!\nedit[0m [1mconfig.js[0m [33mto set your settings and restart the program[0m');
         process.exit(0);
     }
-};
-
-const Proxy = Server((async (req, res) => {
+}, Proxy = Server((async (req, res) => {
     if ('OPTIONS' === req.method) {
         return ((req, res) => {
             res.writeHead(200, {
@@ -501,19 +427,23 @@ const Proxy = Server((async (req, res) => {
     }
     switch (req.url) {
       case '/v1/models':
-        res.json({
-            data: [ {
-                id: AI.mdl()
-            } ]
-        });
+        const modelsReply = {
+            object: 'list',
+            data: AI.mdl().map((name => ({
+                id: name,
+                object: 'model',
+                created: 0,
+                owned_by: 'clewd'
+            })))
+        };
+        res.json(modelsReply);
         break;
 
       case '/v1/chat/completions':
         ((req, res) => {
             setTitle('recv...');
             let fetchAPI;
-            const controller = new AbortController;
-            const {signal} = controller;
+            const controller = new AbortController, {signal} = controller;
             res.socket.on('close', (async () => {
                 controller.signal.aborted || controller.abort();
             }));
@@ -522,14 +452,9 @@ const Proxy = Server((async (req, res) => {
                 buffer.push(chunk);
             }));
             req.on('end', (async () => {
-                let clewdStream;
-                let titleTimer;
-                let samePrompt = false;
-                let shouldRenew = true;
-                let retryRegen = false;
+                let clewdStream, titleTimer, samePrompt = false, shouldRenew = true, retryRegen = false;
                 try {
-                    const body = JSON.parse(Buffer.concat(buffer).toString());
-                    const temperature = Math.max(.1, Math.min(1, body.temperature));
+                    const body = JSON.parse(Buffer.concat(buffer).toString()), temperature = Math.max(.1, Math.min(1, body.temperature));
                     let {messages} = body;
                     if (messages?.length < 1) {
                         throw Error('Select OpenAI as completion source');
@@ -561,7 +486,10 @@ const Proxy = Server((async (req, res) => {
                         console.log('[33mhaving[0m [1mAllSamples[0m and [1mNoSamples[0m both set to true is not supported');
                         throw Error('Only one can be used at the same time: AllSamples/NoSamples');
                     }
-                    const model = AI.mdl();
+                    const model = body.model;
+                    if (!/^claude-.*/i.test(model)) {
+                        throw Error(`Invalid model selected: ${model}, use one of these ${AI.mdl().join(', ')}`);
+                    }
                     curPrompt = {
                         firstUser: messages.find((message => 'user' === message.role)),
                         firstSystem: messages.find((message => 'system' === message.role)),
@@ -655,15 +583,10 @@ const Proxy = Server((async (req, res) => {
                         }
                     }
                     let {prompt, systems} = ((messages, type) => {
-                        const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i;
-                        const rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i;
-                        const messagesClone = JSON.parse(JSON.stringify(messages));
-                        const realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role)));
-                        const sampleLogs = messagesClone.filter((message => message.name));
-                        const mergedLogs = [ ...sampleLogs, ...realLogs ];
+                        const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i, rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i, messagesClone = JSON.parse(JSON.stringify(messages)), realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role))), sampleLogs = messagesClone.filter((message => message.name)), mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
                             const next = mergedLogs[idx + 1];
-                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && null != message.name && !(message.name in Replacements))(message);
+                            message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && message.name && !(message.name in Replacements))(message);
                             if (next) {
                                 if ('name' in message && 'name' in next) {
                                     if (message.name === next.name) {
@@ -687,14 +610,13 @@ const Proxy = Server((async (req, res) => {
                         lastUser && Config.Settings.StripHuman && (lastUser.strip = true);
                         const systemMessages = messagesClone.filter((message => 'system' === message.role && !message.name));
                         systemMessages.forEach(((message, idx) => {
-                            const scenario = message.content.match(rgxScenario)?.[1];
-                            const personality = message.content.match(rgxPerson);
+                            const scenario = message.content.match(rgxScenario)?.[1], personality = message.content.match(rgxPerson);
                             if (scenario) {
-                                message.content = Config.ScenarioFormat.replace(/{{SCENARIO}}/g, scenario);
+                                message.content = Config.ScenarioFormat.replace(/{{scenario}}/gim, scenario);
                                 message.scenario = true;
                             }
                             if (3 === personality?.length) {
-                                message.content = Config.PersonalityFormat.replace(/{{CHAR}}/gm, personality[1]).replace(/{{PERSONALITY}}/gm, personality[2]);
+                                message.content = Config.PersonalityFormat.replace(/{{char}}/gim, personality[1]).replace(/{{personality}}/gim, personality[2]);
                                 message.personality = true;
                             }
                             message.main = 0 === idx;
@@ -762,29 +684,26 @@ const Proxy = Server((async (req, res) => {
                         }
                         let res;
                         const json = {
-                            completion: {
-                                ...Config.Settings.PassParams && {
-                                    temperature
-                                },
-                                prompt,
-                                timezone: AI.zone(),
-                                model
+                            attachments,
+                            files: [],
+                            model,
+                            ...Config.Settings.PassParams && {
+                                temperature
                             },
-                            organization_uuid: uuidOrg,
-                            conversation_uuid: Conversation.uuid,
-                            text: prompt,
-                            attachments
+                            prompt: prompt || '',
+                            timezone: AI.zone()
                         };
                         res = Config.Settings.Superfetch ? await superfetch({
-                            url: AI.end() + '/api/append_message',
+                            url: `${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`,
                             method: 'POST',
                             body: json,
                             headers: {
+                                ...AI.hdr(),
                                 Accept: 'text/event-stream',
                                 Cookie: getCookies(),
                                 'User-Agent': AI.agent()
                             }
-                        }) : await fetch(AI.end() + '/api/append_message', {
+                        }) : await fetch(`${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`, {
                             signal,
                             method: 'POST',
                             body: JSON.stringify(json),
@@ -808,7 +727,7 @@ const Proxy = Server((async (req, res) => {
                                 controller.close();
                             }
                         });
-                        await superStream.pipeThrough(clewdStream).pipeTo(response);
+                        await superStream.pipeThrough(clewdStream).pipeTo(response).catch((() => {}));
                         setTitle('ok ' + bytesToSize(clewdStream.size));
                     } else {
                         titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
@@ -870,12 +789,7 @@ const Proxy = Server((async (req, res) => {
 !async function() {
     await (async () => {
         if (FS.existsSync(ConfigPath)) {
-            const userConfig = require(ConfigPath);
-            const validConfigs = Object.keys(Config);
-            const parsedConfigs = Object.keys(userConfig);
-            const parsedSettings = Object.keys(userConfig.Settings);
-            const invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config)));
-            const validSettings = Object.keys(Config.Settings);
+            const userConfig = require(ConfigPath), validConfigs = Object.keys(Config), parsedConfigs = Object.keys(userConfig), parsedSettings = Object.keys(userConfig.Settings), invalidConfigs = parsedConfigs.filter((config => !validConfigs.includes(config))), validSettings = Object.keys(Config.Settings);
             UnknownSettings = parsedSettings.filter((setting => !validSettings.includes(setting)));
             invalidConfigs.forEach((config => {
                 console.warn(`unknown config in config.js: [33m${config}[0m`);
@@ -883,8 +797,7 @@ const Proxy = Server((async (req, res) => {
             UnknownSettings.forEach((setting => {
                 console.warn(`unknown setting in config.js: [33mSettings.${setting}[0m`);
             }));
-            const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config)));
-            const missingSettings = validSettings.filter((config => !parsedSettings.includes(config)));
+            const missingConfigs = validConfigs.filter((config => !parsedConfigs.includes(config))), missingSettings = validSettings.filter((config => !parsedSettings.includes(config)));
             missingConfigs.forEach((config => {
                 console.warn(`adding missing config in config.js: [33m${config}[0m`);
                 userConfig[config] = Config[config];

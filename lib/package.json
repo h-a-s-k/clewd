@@ -1,0 +1,24 @@
+{
+  "name": "clewd-superfetch",
+  "version": "1.5.2",
+  "description": "for clewd",
+  "main": "clewd-superfetch.js",
+  "scripts": {},
+  "author": { "name": "ahsk", "url": "https://gitgud.io/ahsk" },
+  "contributors": [{ "name": "ahsk", "url": "https://gitgud.io/ahsk" }, { "name": "h-a-s-k", "url": "https://github.com/h-a-s-k" }],
+  "keywords": [
+    "clewd",
+    "clewd-superfetch"
+  ],
+  "homepage": "https://github.com/h-a-s-k/clewd-superfetch#readme",
+  "repository": {
+    "type": "git",
+    "directory": "git+https://github.com/h-a-s-k/clewd-superfetch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/h-a-s-k/clewd-superfetch/issues"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
