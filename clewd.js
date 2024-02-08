@@ -585,28 +585,29 @@ const writeSettings = async (config, firstRun = false) => {
                     let {prompt, systems} = ((messages, type) => {
                         const rgxScenario = /^\[Circumstances and context of the dialogue: ([\s\S]+?)\.?\]$/i, rgxPerson = /^\[([\s\S]+?)'s personality: ([\s\S]+?)\]$/i, messagesClone = JSON.parse(JSON.stringify(messages)), realLogs = messagesClone.filter((message => [ 'user', 'assistant' ].includes(message.role))), sampleLogs = messagesClone.filter((message => message.name)), mergedLogs = [ ...sampleLogs, ...realLogs ];
                         mergedLogs.forEach(((message, idx) => {
-                            const next = mergedLogs[idx + 1];
+                            const nextMessage = mergedLogs[idx + 1];
                             message.customname = (message => [ 'assistant', 'user' ].includes(message.role) && message.name && !(message.name in Replacements))(message);
-                            if (next) {
-                                if ('name' in message && 'name' in next) {
-                                    if (message.name === next.name) {
-                                        message.content += '\n' + next.content;
-                                        next.merged = true;
+                            if (nextMessage) {
+                                const spacing = message.content.endsWith('\n') ? '' : '\n';
+                                if ('name' in message && 'name' in nextMessage) {
+                                    if (message.name === nextMessage.name) {
+                                        message.content += `${spacing}${nextMessage.content}`;
+                                        nextMessage.discard = true;
                                     }
-                                } else if ('system' !== next.role) {
-                                    if (next.role === message.role) {
-                                        message.content += '\n' + next.content;
-                                        next.merged = true;
+                                } else if ([ 'user', 'assistant' ].includes(nextMessage.role)) {
+                                    if (nextMessage.role === message.role) {
+                                        message.content += `${spacing}${nextMessage.content}`;
+                                        nextMessage.discard = true;
                                     }
                                 } else {
-                                    message.content += '\n' + next.content;
-                                    next.merged = true;
+                                    message.content += `${spacing}${nextMessage.content}`;
+                                    nextMessage.discard = true;
                                 }
                             }
                         }));
-                        const lastAssistant = realLogs.findLast((message => !message.merged && 'assistant' === message.role));
+                        const lastAssistant = realLogs.findLast((message => !message.discard && 'assistant' === message.role));
                         lastAssistant && Config.Settings.StripAssistant && (lastAssistant.strip = true);
-                        const lastUser = realLogs.findLast((message => !message.merged && 'user' === message.role));
+                        const lastUser = realLogs.findLast((message => !message.discard && 'user' === message.role));
                         lastUser && Config.Settings.StripHuman && (lastUser.strip = true);
                         const systemMessages = messagesClone.filter((message => 'system' === message.role && !message.name));
                         systemMessages.forEach(((message, idx) => {
@@ -652,7 +653,7 @@ const writeSettings = async (config, firstRun = false) => {
                             messagesClone.forEach((message => message.discard = message.discard || mergedLogs.includes(message) && ![ lastUser ].includes(message)));
                         }
                         const prompt = messagesClone.map(((message, idx) => {
-                            if (message.merged || message.discard) {
+                            if (message.discard) {
                                 return '';
                             }
                             if (message.content.length < 1) {
