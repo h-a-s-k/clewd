@@ -17,6 +17,6 @@ then
 	else
 		echo "Only able to update if you clone the 3.8.5 branch"
 		echo "git clone https://gitgud.io/ahsk/clewd.git"
-		echo "git switch 3.8.5"
+		echo "cd clewd && git switch 3.8.5"
 	fi
 fi
