@@ -59,8 +59,11 @@ Array.prototype.sample = function() {
 const updateParams = res => {
     updateCookies(res);
 }, updateCookies = res => {
+    if (!res) {
+        return;
+    }
     let cookieNew = '';
-    res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res?.superfetch ? cookieNew = res.headers?.['set-cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
+    res instanceof Response ? cookieNew = res.headers?.get('set-cookie') : res.superfetch ? cookieNew = res.headers?.['set-cookie'] : 'string' == typeof res && (cookieNew = res.split('\n').join(''));
     if (!cookieNew) {
         return;
     }
@@ -140,7 +143,11 @@ const updateParams = res => {
                 name,
                 ...properties[type]
             };
-        })), modelName = accStatsigJson?.values?.dynamic_configs?.['6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8=']?.value?.model, model = models.find((model => model.name === modelName)) || {};
+        })), modelName = accStatsigJson?.values?.dynamic_configs?.['6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8=']?.value?.model, model = models.find((model => model.name === modelName)) || {
+            name: modelName,
+            output: 4096,
+            maxContextSize: '???'
+        };
         if (!accStatsig || accStatsigJson.error) {
             throw Error(`Couldn't get account info: "${accStatsigJson?.error?.message || accStatsig.statusText}"`);
         }
