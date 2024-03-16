@@ -111,10 +111,12 @@ const AI = {
 }, getCookies = () => {
     const cookieNames = Object.keys(cookies);
     return cookieNames.map(((name, idx) => `${name}=${cookies[name]}${idx === cookieNames.length - 1 ? '' : ';'}`)).join(' ').replace(/(\s+)$/gi, '');
-}, superfetch = async params => {
+}, superfetch = async (url, params) => {
     let res = {};
     const options = {
-        url: params.url,
+        ...(url || params.url) && {
+            url: url || params.url
+        },
         method: params.method,
         headers: {
             ...AI.hdr(),
@@ -133,6 +135,9 @@ const AI = {
     try {
         const {response} = await Superfetch.request(options);
         res = response;
+        res.json = function() {
+            return JSON.parse(this.body || '{}');
+        };
     } catch (err) {
         console.error('Report this to the dev:\n%o', err);
     }
@@ -149,7 +154,7 @@ const AI = {
     if (Config.Settings.PreserveChats) {
         return;
     }
-    const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
+    const res = await (Config.Settings.Superfetch ? superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
         headers: {
             ...AI.hdr(),
             Cookie: getCookies()
@@ -170,8 +175,8 @@ const AI = {
         host: Config.SuperfetchHost,
         port: Config.SuperfetchPort
     }) : null;
-    Superfetch?.init();
-    const accRes = await fetch(AI.end() + '/api/organizations', {
+    await (Superfetch?.init());
+    const accRes = await (Config.Settings.Superfetch ? superfetch : fetch)(AI.end() + '/api/organizations', {
         method: 'GET',
         headers: {
             ...AI.hdr(),
@@ -179,7 +184,8 @@ const AI = {
         }
     }), accInfo = (await accRes.json())?.[0];
     if (!accInfo || accInfo.error) {
-        throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText}"`);
+        const alternativeJson = accRes.json();
+        throw Error(`Couldn't get account info: "${accInfo?.error?.message || accRes.statusText || alternativeJson.error?.message}"`);
     }
     if (!accInfo?.uuid) {
         throw Error('Invalid account id');
@@ -208,7 +214,7 @@ const AI = {
             if ('consumer_restricted_mode' === type) {
                 return;
             }
-            const req = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
+            const req = await (Config.Settings.Superfetch ? superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
                 headers: {
                     ...AI.hdr(),
                     Cookie: getCookies()
@@ -220,7 +226,7 @@ const AI = {
             console.log(`${type}: ${json.error ? json.error.message || json.error.type || json.detail : 'OK'}`);
         })(flag.type))));
     }
-    const convRes = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+    const convRes = await (Config.Settings.Superfetch ? superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
         method: 'GET',
         headers: {
             ...AI.hdr(),
@@ -528,8 +534,7 @@ const writeSettings = async (config, firstRun = false) => {
                                 conversation_uuid: Conversation.uuid,
                                 text: ''
                             };
-                            res = Config.Settings.Superfetch ? await superfetch({
-                                url: AI.end() + '/api/retry_message',
+                            res = Config.Settings.Superfetch ? await superfetch(AI.end() + '/api/retry_message', {
                                 method: 'POST',
                                 body: json,
                                 headers: {
@@ -555,7 +560,7 @@ const writeSettings = async (config, firstRun = false) => {
                         fetchAPI = await (async signal => {
                             Conversation.uuid = randomUUID().toString();
                             Conversation.depth = 0;
-                            const res = await fetch(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+                            const res = await (Config.Settings.Superfetch ? superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
                                 signal,
                                 headers: {
                                     ...AI.hdr(),
@@ -694,8 +699,7 @@ const writeSettings = async (config, firstRun = false) => {
                             prompt: prompt || '',
                             timezone: AI.zone()
                         };
-                        res = Config.Settings.Superfetch ? await superfetch({
-                            url: `${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`,
+                        res = Config.Settings.Superfetch ? await superfetch(`${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`, {
                             method: 'POST',
                             body: json,
                             headers: {
