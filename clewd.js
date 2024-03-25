@@ -14,7 +14,7 @@ const ConfigPath = joinP(__dirname, './config.js'), LogPath = joinP(__dirname, '
     depth: 0
 }, cookies = {};
 
-let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonated = false, Config = {
+let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonated = false, assignedModel = null, Config = {
     Cookie: '',
     Ip: '127.0.0.1',
     Port: 8444,
@@ -90,7 +90,7 @@ const updateParams = res => {
     if (Config.Settings.PreserveChats) {
         return;
     }
-    const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
+    const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/organizations/${uuidOrg}/chat_conversations/${uuid}`, {
         headers: {
             ...AI.hdr(),
             Cookie: getCookies()
@@ -110,7 +110,7 @@ const updateParams = res => {
         SuperfetchFoldersMk();
     }
     const accInfo = await (async () => {
-        const accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/auth/current_account', {
+        const accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/auth/current_account', {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
@@ -126,7 +126,7 @@ const updateParams = res => {
             throw Error(`Couldn't get account info: "${accInfoJson?.error?.message || accInfoRes.statusText}"`);
         }
         updateParams(accInfoRes);
-        const accStatsig = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/account/statsig/${uuidOrg}`, {
+        const accStatsig = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/account/statsig/${uuidOrg}`, {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
@@ -134,8 +134,10 @@ const updateParams = res => {
             }
         });
         await checkResErr(accStatsig);
-        const accStatsigJson = await accStatsig.json(), type = true === accStatsigJson?.user?.custom?.isPro ? 'pro' : 'free', models = Object.entries(accStatsigJson?.values?.dynamic_configs?.['TZDmWcVIjsdmEcb9XJSbVmhsuJAJiM4wKj0hxOMBraQ=']?.value || {}).map((([name, properties]) => {
-            if (properties[type].hardLimit) {
+        const accStatsigJson = await accStatsig.json(), type = true === accStatsigJson?.user?.custom?.isPro ? 'pro' : 'free', modelsAll = (accStatsigJson?.values?.dynamic_configs?.['R0FVshL4aI3OcWe2hMvT/3S2I89bAW5B9n0moWX66sA=']?.value?.models || []).map((entry => entry.model));
+        AI.mdl = [ ...new Set([ ...AI.mdl, ...modelsAll ]) ];
+        const modelsInfo = Object.entries(accStatsigJson?.values?.dynamic_configs?.['TZDmWcVIjsdmEcb9XJSbVmhsuJAJiM4wKj0hxOMBraQ=']?.value || {}).map((([name, properties]) => {
+            if (properties[type]?.hardLimit) {
                 properties[type].maxContextSize = properties[type].hardLimit;
                 delete properties[type].hardLimit;
             }
@@ -143,10 +145,13 @@ const updateParams = res => {
                 name,
                 ...properties[type]
             };
-        })), modelName = accStatsigJson?.values?.dynamic_configs?.['6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8=']?.value?.model, model = models.find((model => model.name === modelName)) || {
-            name: modelName,
-            output: 4096,
+        })), assignedModelName = accStatsigJson?.values?.dynamic_configs?.['6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8=']?.value?.model || '???', modelLimits = accStatsigJson?.values?.dynamic_configs?.['TZDmWcVIjsdmEcb9XJSbVmhsuJAJiM4wKj0hxOMBraQ=']?.value?.[assignedModelName]?.[type] || {
+            output: '???',
             maxContextSize: '???'
+        };
+        assignedModel = modelsInfo.find((model => model.name === assignedModelName)) || {
+            name: assignedModelName,
+            ...modelLimits
         };
         if (!accStatsig || accStatsigJson.error) {
             throw Error(`Couldn't get account info: "${accStatsigJson?.error?.message || accStatsig.statusText}"`);
@@ -156,11 +161,10 @@ const updateParams = res => {
             name,
             type,
             capabilities,
-            organizations: accOrgs.length,
-            model
+            organizations: accOrgs.length
         };
     })(), accFlags = await (async () => {
-        const accOrgRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/organizations', {
+        const accOrgRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/organizations', {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
@@ -192,7 +196,7 @@ const updateParams = res => {
         name: accInfo.name,
         type: accInfo.type,
         capabilities: accInfo.capabilities,
-        assigned_model: accInfo.model
+        assigned_model: assignedModel
     });
     await Promise.all(accFlags.map((flag => (async type => {
         if (!Config.Settings.ClearFlags) {
@@ -201,7 +205,7 @@ const updateParams = res => {
         if ('consumer_restricted_mode' === type) {
             return;
         }
-        const req = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
+        const req = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/organizations/${uuidOrg}/flags/${type}/dismiss`, {
             headers: {
                 ...AI.hdr(),
                 Cookie: getCookies()
@@ -216,7 +220,7 @@ const updateParams = res => {
         if (Config.Settings.PreserveChats) {
             return;
         }
-        const convRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+        const convRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/organizations/${uuidOrg}/chat_conversations`, {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
@@ -250,7 +254,7 @@ const updateParams = res => {
       case '/v1/models':
         const modelsReply = {
             object: 'list',
-            data: AI.mdl().map((name => ({
+            data: AI.mdl.map((name => ({
                 id: name,
                 object: 'model',
                 created: 0,
@@ -276,13 +280,12 @@ const updateParams = res => {
                 let clewdStream, titleTimer, samePrompt = false, shouldRenew = true, retryRegen = false;
                 try {
                     const body = JSON.parse(Buffer.concat(buffer).toString());
-                    let {temperature} = body;
+                    let {messages, stream: streaming, model: modelName, temperature} = body;
                     temperature = Math.max(.1, Math.min(1, temperature));
-                    let {messages} = body;
                     if (!messages || messages.length < 1) {
                         throw Error('Select OpenAI as completion source');
                     }
-                    if (!body.stream && 1 === messages.length && JSON.stringify(messages.sort() || []) === JSON.stringify([ {
+                    if (!streaming && 1 === messages.length && JSON.stringify(messages.sort() || []) === JSON.stringify([ {
                         role: 'user',
                         content: 'Hi'
                     } ].sort())) {
@@ -295,8 +298,8 @@ const updateParams = res => {
                         });
                     }
                     res.setHeader('Access-Control-Allow-Origin', '*');
-                    body.stream && res.setHeader('Content-Type', 'text/event-stream');
-                    if (!body.stream && messages?.[0]?.content?.startsWith('From the list below, choose a word that best represents a character\'s outfit description, action, or emotion in their dialogue')) {
+                    streaming && res.setHeader('Content-Type', 'text/event-stream');
+                    if (!streaming && messages?.[0]?.content?.startsWith('From the list below, choose a word that best represents a character\'s outfit description, action, or emotion in their dialogue')) {
                         return res.json({
                             choices: [ {
                                 message: {
@@ -310,9 +313,8 @@ const updateParams = res => {
                         throw Error('Only one can be used at the same time: AllSamples/NoSamples');
                     }
                     !Config.Settings.RenewAlways && Config.Settings.PromptExperiments && console.log('[33mhaving both[0m [1mRenewAlways[0m: false [33mand[0m [1mPromptExperiments[0m: true [33mwill likely error out after a few messages. set[0m [1mRenewAlways[0m: true [33mor[0m [1mPromptExperiments[0m: false');
-                    const model = body.model;
-                    if (!/^claude-.*/i.test(model)) {
-                        throw Error('Invalid model selected: ' + model);
+                    if (!/^claude-.*/i.test(modelName)) {
+                        throw Error(`Invalid model selected: ${modelName}. Supported ${AI.mdl.join(', ')}`);
                     }
                     curPrompt = {
                         firstUser: messages.find((message => 'user' === message.role)),
@@ -340,13 +342,14 @@ const updateParams = res => {
                     let promptType = '';
                     if (retryRegen) {
                         promptType = 'R';
-                        fetchAPI = await (async (signal, model) => {
-                            let res;
-                            const body = {
+                        fetchAPI = await (async (signal, modelName) => {
+                            const isAssignedModel = assignedModel.name === modelName, body = {
                                 completion: {
                                     prompt: '',
                                     timezone: AI.zone(),
-                                    model
+                                    ...!isAssignedModel && {
+                                        model: modelName
+                                    }
                                 },
                                 organization_uuid: uuidOrg,
                                 conversation_uuid: Conversation.uuid,
@@ -357,7 +360,7 @@ const updateParams = res => {
                                 Accept: 'text/event-stream',
                                 Cookie: getCookies()
                             };
-                            res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end() + '/api/retry_message', {
+                            const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/retry_message', {
                                 stream: true,
                                 signal,
                                 method: 'POST',
@@ -367,13 +370,13 @@ const updateParams = res => {
                             updateParams(res);
                             await checkResErr(res);
                             return res;
-                        })(signal, model);
+                        })(signal, modelName);
                     } else if (shouldRenew) {
                         Conversation.uuid && await deleteChat(Conversation.uuid);
                         fetchAPI = await (async signal => {
                             Conversation.uuid = randomUUID().toString();
                             Conversation.depth = 0;
-                            const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg}/chat_conversations`, {
+                            const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/organizations/${uuidOrg}/chat_conversations`, {
                                 signal,
                                 headers: {
                                     ...AI.hdr(),
@@ -403,14 +406,14 @@ const updateParams = res => {
                     let {prompt, systems} = messagesToPrompt({
                         messages,
                         promptType,
-                        model,
+                        model: modelName,
                         Config
                     });
-                    console.log(`${model} [[2m${promptType}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
+                    console.log(`${modelName === assignedModel.name ? '[2m' : '[33m'}${modelName}[0m [[2m${promptType}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     'R' !== promptType || prompt || (prompt = '...regen...');
-                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### MODEL: ${model}\n####### PROMPT (${promptType}):\n${prompt}\n--\n####### REPLY:\n`);
-                    retryRegen || (fetchAPI = await (async (signal, model, prompt, temperature, type) => {
-                        const attachments = [];
+                    Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### MODEL: ${modelName}\n####### PROMPT (${promptType}):\n${prompt}\n--\n####### REPLY:\n`);
+                    retryRegen || (fetchAPI = await (async (signal, modelName, prompt, temperature, type) => {
+                        const isAssignedModel = assignedModel.name === modelName, attachments = [];
                         if (Config.Settings.PromptExperiments) {
                             attachments.push({
                                 extracted_content: prompt,
@@ -420,11 +423,12 @@ const updateParams = res => {
                             });
                             prompt = 'r' === type ? Config.PromptExperimentFirst : Config.PromptExperimentNext;
                         }
-                        let res;
                         const body = {
                             attachments,
                             files: [],
-                            model,
+                            ...!isAssignedModel && {
+                                model: modelName
+                            },
                             ...Config.Settings.PassParams && {
                                 temperature
                             },
@@ -436,7 +440,7 @@ const updateParams = res => {
                             Accept: 'text/event-stream',
                             Cookie: getCookies()
                         };
-                        res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end()}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`, {
+                        const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/completion`, {
                             stream: true,
                             signal,
                             method: 'POST',
@@ -446,14 +450,14 @@ const updateParams = res => {
                         updateParams(res);
                         await checkResErr(res);
                         return res;
-                    })(signal, model, prompt, temperature, promptType));
+                    })(signal, modelName, prompt, temperature, promptType));
                     const response = Writable.toWeb(res);
                     clewdStream = new ClewdStream({
                         config: Config,
                         minSize: Config.BufferSize,
-                        streaming: true === body.stream,
+                        streaming,
                         source: fetchAPI,
-                        model,
+                        model: modelName,
                         abortControl
                     }, Logger);
                     titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
