@@ -54,6 +54,10 @@ refactoring
 
 old chats are not being deleted
 
+### **Hotfix 1**
+
+fixed account info fetching
+
 # 4.8
 
 test endpoint

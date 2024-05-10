@@ -110,7 +110,7 @@ const updateParams = res => {
         SuperfetchFoldersMk();
     }
     const accInfo = await (async () => {
-        const accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/auth/current_account', {
+        const accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/account', {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
@@ -118,7 +118,7 @@ const updateParams = res => {
             }
         });
         await checkResErr(accInfoRes);
-        const accInfoJson = await accInfoRes.json(), accOrgs = accInfoJson?.account?.memberships?.filter((org => org.organization)) || [];
+        const accInfoJson = await accInfoRes.json(), accOrgs = accInfoJson?.memberships?.filter((org => org.organization)) || [];
         let name = accInfoJson?.account?.email_address?.split('@')?.[0] || '??';
         const capabilities = accOrgs[0]?.organization?.capabilities;
         uuidOrg = accOrgs[0]?.organization?.uuid;
