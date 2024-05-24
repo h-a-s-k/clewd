@@ -118,9 +118,7 @@ const updateParams = res => {
             }
         });
         await checkResErr(accInfoRes);
-        const accInfoJson = await accInfoRes.json(), accOrgs = accInfoJson?.memberships?.filter((org => org.organization)) || [];
-        let name = accInfoJson?.account?.email_address?.split('@')?.[0] || '??';
-        const capabilities = accOrgs[0]?.organization?.capabilities;
+        const accInfoJson = await accInfoRes.json(), accOrgs = accInfoJson?.memberships?.filter((org => org.organization)) || [], name = accInfoJson?.email_address?.split('@')?.[0] || '??', capabilities = accOrgs[0]?.organization?.capabilities;
         uuidOrg = accOrgs[0]?.organization?.uuid;
         if (!uuidOrg || !accOrgs.length > 0) {
             throw Error(`Couldn't get account info: "${accInfoJson?.error?.message || accInfoRes.statusText}"`);
@@ -313,7 +311,7 @@ const updateParams = res => {
                         throw Error('Only one can be used at the same time: AllSamples/NoSamples');
                     }
                     !Config.Settings.RenewAlways && Config.Settings.PromptExperiments && console.log('[33mhaving both[0m [1mRenewAlways[0m: false [33mand[0m [1mPromptExperiments[0m: true [33mwill likely error out after a few messages. set[0m [1mRenewAlways[0m: true [33mor[0m [1mPromptExperiments[0m: false');
-                    if (!/^claude-.*/i.test(modelName)) {
+                    if (!/^(claude-.*)|(.*goldengate.*?)/i.test(modelName)) {
                         throw Error(`Invalid model selected: ${modelName}. Supported ${AI.mdl.join(', ')}`);
                     }
                     curPrompt = {
