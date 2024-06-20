@@ -135,7 +135,7 @@ const updateParams = res => {
         const accStatsigJson = await accStatsig.json(), type = true === accStatsigJson?.user?.custom?.isPro ? 'pro' : 'free', modelsAll = (accStatsigJson?.values?.dynamic_configs?.['R0FVshL4aI3OcWe2hMvT/3S2I89bAW5B9n0moWX66sA=']?.value?.models || []).map((entry => entry.model));
         AI.mdl = [ ...new Set([ ...AI.mdl, ...modelsAll ]) ];
         const modelsInfo = Object.entries(accStatsigJson?.values?.dynamic_configs?.['TZDmWcVIjsdmEcb9XJSbVmhsuJAJiM4wKj0hxOMBraQ=']?.value || {}).map((([name, properties]) => {
-            if (properties[type]?.hardLimit) {
+            if (!properties[type]?.maxContextSize) {
                 properties[type].maxContextSize = properties[type].hardLimit;
                 delete properties[type].hardLimit;
             }
@@ -143,7 +143,7 @@ const updateParams = res => {
                 name,
                 ...properties[type]
             };
-        })), assignedModelName = accStatsigJson?.values?.dynamic_configs?.['6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8=']?.value?.model || '???', modelLimits = accStatsigJson?.values?.dynamic_configs?.['TZDmWcVIjsdmEcb9XJSbVmhsuJAJiM4wKj0hxOMBraQ=']?.value?.[assignedModelName]?.[type] || {
+        })), assignedModelName = accStatsigJson?.values?.dynamic_configs?.['6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8=']?.value?.model || '???', modelLimits = accStatsigJson?.values?.dynamic_configs?.['TZDmWcVIjsdmEcb9XJSbVmhsuJAJiM4wKj0hxOMBraQ=']?.value?.[assignedModelName]?.[type] || accStatsigJson?.values?.dynamic_configs?.['TZDmWcVIjsdmEcb9XJSbVmhsuJAJiM4wKj0hxOMBraQ=']?.value?.default?.[type] || {
             output: '???',
             maxContextSize: '???'
         };
@@ -431,6 +431,7 @@ const updateParams = res => {
                                 temperature
                             },
                             prompt: prompt || '',
+                            rendering_mode: 'raw',
                             timezone: AI.zone()
                         };
                         let headers = {
