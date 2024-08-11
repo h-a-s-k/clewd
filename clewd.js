@@ -38,7 +38,7 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
         ClearFlags: false,
         PreserveChats: false,
         LogMessages: false,
-        Superfetch: true
+        Superfetch: false
     }
 };
 
@@ -110,7 +110,7 @@ const updateParams = res => {
         SuperfetchFoldersMk();
     }
     const accInfo = await (async () => {
-        const accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/account', {
+        const accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/bootstrap', {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
@@ -118,7 +118,7 @@ const updateParams = res => {
             }
         });
         await checkResErr(accInfoRes);
-        const accInfoJson = await accInfoRes.json(), accOrgs = accInfoJson?.memberships?.filter((org => org.organization)) || [], name = accInfoJson?.email_address?.split('@')?.[0] || '??', capabilities = accOrgs[0]?.organization?.capabilities;
+        const accInfoJson = await accInfoRes.json(), accOrgs = accInfoJson?.account?.memberships?.filter((org => org.organization)) || [], name = accInfoJson?.account?.email_address?.split('@')?.[0] || '??', capabilities = accOrgs[0]?.organization?.capabilities;
         uuidOrg = accOrgs[0]?.organization?.uuid;
         if (!uuidOrg || !accOrgs.length > 0) {
             throw Error(`Couldn't get account info: "${accInfoJson?.error?.message || accInfoRes.statusText}"`);
@@ -340,25 +340,22 @@ const updateParams = res => {
                     let promptType = '';
                     if (retryRegen) {
                         promptType = 'R';
-                        fetchAPI = await (async (signal, modelName) => {
-                            const isAssignedModel = assignedModel.name === modelName, body = {
-                                completion: {
-                                    prompt: '',
-                                    timezone: AI.zone(),
-                                    ...!isAssignedModel && {
-                                        model: modelName
-                                    }
-                                },
-                                organization_uuid: uuidOrg,
-                                conversation_uuid: Conversation.uuid,
-                                text: ''
+                        fetchAPI = await (async signal => {
+                            assignedModel.name;
+                            const body = {
+                                prompt: '',
+                                parent_message_uuid: '',
+                                timezone: AI.zone(),
+                                attachments: [],
+                                files: [],
+                                rendering_mode: 'raw'
                             };
                             let headers = {
                                 ...AI.hdr(Conversation.uuid || ''),
                                 Accept: 'text/event-stream',
                                 Cookie: getCookies()
                             };
-                            const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/retry_message', {
+                            const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/organizations/${uuidOrg || ''}/chat_conversations/${Conversation.uuid || ''}/retry_completion`, {
                                 stream: true,
                                 signal,
                                 method: 'POST',
@@ -368,7 +365,7 @@ const updateParams = res => {
                             updateParams(res);
                             await checkResErr(res);
                             return res;
-                        })(signal, modelName);
+                        })(signal);
                     } else if (shouldRenew) {
                         Conversation.uuid && await deleteChat(Conversation.uuid);
                         fetchAPI = await (async signal => {

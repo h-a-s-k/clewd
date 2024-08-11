@@ -35,7 +35,7 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
 
 ### SettingName: (DEFAULT)/opt1/opt2...
 
- - `Superfetch`: (true)/false
+ - `Superfetch`: (false)/true
     * true will use an alternate method to get past the `We are unable to serve your request` error
     * false won't use this method and you may get the error again
 
