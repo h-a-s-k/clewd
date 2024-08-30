@@ -38,7 +38,7 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
         ClearFlags: false,
         PreserveChats: false,
         LogMessages: false,
-        Superfetch: false
+        Superfetch: true
     }
 };
 
@@ -478,7 +478,7 @@ const updateParams = res => {
                     clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
                     prevImpersonated = clewdStream.impersonated;
                     setTitle('ok ' + bytesToSize(clewdStream.size));
-                    console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m\n`);
+                    console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m${clewdStream.remaining <= 10 ? ` (remaining [1m${clewdStream.remaining}[0m)` : ''}\n`);
                     clewdStream.empty();
                 }
                 if (prevImpersonated) {

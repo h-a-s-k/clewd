@@ -54,7 +54,7 @@ refactoring
 
 old chats are not being deleted
 
-`RetryRegenerate` not working, all of that needs should be reworked
+`RetryRegenerate` not working, all of that needs to be reworked or removed
 
 ### **Hotfix 1**
 
@@ -64,7 +64,7 @@ fixed account info fetching
 
 fixed account info fetching (2)
 
-`Superfetch` off by default
+~~`Superfetch` off by default~~
 
 # 4.8
 
