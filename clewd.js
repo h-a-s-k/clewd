@@ -470,7 +470,9 @@ const updateParams = res => {
                     }, Logger);
                     titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
                     await pipelineP(fetchAPI.body, clewdStream, res);
+                    console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m`);
                 } catch (err) {
+                    console.log(`[31m${err.status || err.code || fetchAPI.status}![0m`);
                     if ('AbortError' === err.name) {
                         res.end();
                     } else {
@@ -484,19 +486,20 @@ const updateParams = res => {
                             }
                         }, err.status || err.code || 500);
                     }
-                }
-                clearInterval(titleTimer);
-                if (clewdStream) {
-                    clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
-                    prevImpersonated = clewdStream.impersonated;
-                    setTitle('ok ' + bytesToSize(clewdStream.size));
-                    console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m${clewdStream.remaining <= 10 ? ` (remaining [1m${clewdStream.remaining}[0m)` : ''}\n`);
-                    clewdStream.empty();
-                }
-                if (prevImpersonated) {
-                    try {
-                        await deleteChat(Conversation.uuid);
-                    } catch (err) {}
+                } finally {
+                    clearInterval(titleTimer);
+                    if (clewdStream) {
+                        clewdStream.censored && console.warn('[33mlikely your account is hard-censored[0m');
+                        prevImpersonated = clewdStream.impersonated;
+                        clewdStream.empty();
+                    }
+                    setTitle('ok ' + bytesToSize(clewdStream?.size || 0));
+                    console.log(clewdStream?.remaining <= 10 ? `(remaining [1m${clewdStream.remaining}[0m)\n` : '\n');
+                    if (prevImpersonated) {
+                        try {
+                            await deleteChat(Conversation.uuid);
+                        } catch (err) {}
+                    }
                 }
             }));
         })(req, res);
