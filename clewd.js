@@ -110,20 +110,23 @@ const updateParams = res => {
         SuperfetchFoldersMk();
     }
     const accInfo = await (async () => {
-        const accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/bootstrap', {
+        const headers = {
+            ...AI.hdr(),
+            Cookie: getCookies(),
+            'anthropic-client-sha': 'unknown',
+            'anthropic-client-version': 'unknown'
+        }, accInfoRes = await (Config.Settings.Superfetch ? Superfetch : fetch)(AI.end + '/api/bootstrap', {
             method: 'GET',
-            headers: {
-                ...AI.hdr(),
-                Cookie: getCookies(),
-                'anthropic-client-sha': 'unknown',
-                'anthropic-client-version': 'unknown'
-            }
+            headers
         });
         await checkResErr(accInfoRes);
         const accInfoJson = await accInfoRes.json(), accOrgs = accInfoJson?.account?.memberships?.filter((org => org.organization)) || [], name = accInfoJson?.account?.email_address?.split('@')?.[0] || '??', capabilities = accOrgs[0]?.organization?.capabilities;
         uuidOrg = accOrgs[0]?.organization?.uuid;
-        if (!uuidOrg || !accOrgs.length > 0) {
-            throw Error(`Couldn't get account info: "${accInfoJson?.error?.message || accInfoRes.statusText}"`);
+        if (!uuidOrg) {
+            throw Error(`Couldn't find id: "${accInfoJson?.error?.message || accInfoRes.statusText || accInfoRes.status}"`);
+        }
+        if (accOrgs.length < 1) {
+            throw Error(`Couldn't find org: "${accInfoJson?.error?.message || accInfoRes.statusText || accInfoRes.status}"`);
         }
         updateParams(accInfoRes);
         const accStatsig = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/account/statsig/${uuidOrg}`, {
@@ -469,7 +472,8 @@ const updateParams = res => {
                         abortControl
                     }, Logger);
                     titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
-                    await pipelineP(fetchAPI.body, clewdStream, res);
+                    const response = Writable.toWeb(res);
+                    Config.Settings.Superfetch ? await Readable.toWeb(fetchAPI.body).pipeThrough(clewdStream).pipeTo(response) : await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
                     console.log(`${200 == fetchAPI.status ? '[32m' : '[33m'}${fetchAPI.status}![0m`);
                 } catch (err) {
                     console.log(`[31m${err.status || err.code || fetchAPI.status}![0m`);
