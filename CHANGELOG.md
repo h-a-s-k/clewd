@@ -64,7 +64,17 @@ fixed account info fetching
 
 fixed account info fetching (2)
 
-~~`Superfetch` off by default~~
+~~`Superfetch` off by default~~ (reverted)
+
+### **Hotfix 3**
+
+minor superfetch tweak
+
+error handling tweak
+
+### **Hotfix 4**
+
+send proper status codes for most things
 
 # 4.8
 

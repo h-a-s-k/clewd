@@ -4,7 +4,7 @@
 */
 'use strict';
 
-const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream, writeFileSync} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable, SuperfetchFoldersMk, SuperfetchFoldersRm} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Main} = require('./lib/clewd-utils'), {isSTDivider, messagesToPrompt} = require('./lib/clewd-message'), ClewdStream = require('./lib/clewd-stream');
+const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {pipeline: pipelineP} = require('node:stream/promises'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream, writeFileSync} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable, SuperfetchFoldersMk, SuperfetchFoldersRm} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Main} = require('./lib/clewd-utils'), {isSTDivider, messagesToPrompt} = require('./lib/clewd-message'), ClewdStream = require('./lib/clewd-stream');
 
 let ChangedSettings, UnknownSettings, Logger;
 
@@ -114,7 +114,9 @@ const updateParams = res => {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
-                Cookie: getCookies()
+                Cookie: getCookies(),
+                'anthropic-client-sha': 'unknown',
+                'anthropic-client-version': 'unknown'
             }
         });
         await checkResErr(accInfoRes);
@@ -128,7 +130,9 @@ const updateParams = res => {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
-                Cookie: getCookies()
+                Cookie: getCookies(),
+                'anthropic-client-sha': 'unknown',
+                'anthropic-client-version': 'unknown'
             }
         });
         await checkResErr(accStatsig);
@@ -166,7 +170,9 @@ const updateParams = res => {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
-                Cookie: getCookies()
+                Cookie: getCookies(),
+                'anthropic-client-sha': 'unknown',
+                'anthropic-client-version': 'unknown'
             }
         }), accOrgInfo = (await accOrgRes.json())?.[0];
         if (!accOrgInfo || accOrgInfo?.error) {
@@ -222,7 +228,9 @@ const updateParams = res => {
             method: 'GET',
             headers: {
                 ...AI.hdr(),
-                Cookie: getCookies()
+                Cookie: getCookies(),
+                'anthropic-client-sha': 'unknown',
+                'anthropic-client-version': 'unknown'
             }
         }), conversations = await convRes.json();
         updateParams(convRes);
@@ -375,7 +383,9 @@ const updateParams = res => {
                                 signal,
                                 headers: {
                                     ...AI.hdr(),
-                                    Cookie: getCookies()
+                                    Cookie: getCookies(),
+                                    'anthropic-client-sha': 'unknown',
+                                    'anthropic-client-version': 'unknown'
                                 },
                                 method: 'POST',
                                 body: JSON.stringify({
@@ -427,6 +437,9 @@ const updateParams = res => {
                             ...Config.Settings.PassParams && {
                                 temperature
                             },
+                            ...Config.Settings.RenewAlways && {
+                                parent_message_uuid: '00000000-0000-4000-8000-000000000000'
+                            },
                             prompt: prompt || '',
                             rendering_mode: 'raw',
                             timezone: AI.zone()
@@ -447,7 +460,6 @@ const updateParams = res => {
                         await checkResErr(res);
                         return res;
                     })(signal, modelName, prompt, temperature, promptType));
-                    const response = Writable.toWeb(res);
                     clewdStream = new ClewdStream({
                         config: Config,
                         minSize: Config.BufferSize,
@@ -457,7 +469,7 @@ const updateParams = res => {
                         abortControl
                     }, Logger);
                     titleTimer = setInterval((() => setTitle('recv ' + bytesToSize(clewdStream.size))), 300);
-                    Config.Settings.Superfetch ? await Readable.toWeb(fetchAPI.body).pipeThrough(clewdStream).pipeTo(response) : await fetchAPI.body.pipeThrough(clewdStream).pipeTo(response);
+                    await pipelineP(fetchAPI.body, clewdStream, res);
                 } catch (err) {
                     if ('AbortError' === err.name) {
                         res.end();
@@ -465,12 +477,12 @@ const updateParams = res => {
                         err.planned || console.error('[33mClewd:[0m\n%o', err);
                         res.json({
                             error: {
-                                message: 'clewd: ' + (err.message || err.name || err.type),
+                                message: 'clewd: ' + (err.message || err.type || err.name),
                                 type: err.type || err.name || err.code,
                                 param: null,
-                                code: err.code || 500
+                                code: err.status || err.code || 500
                             }
-                        }, 500);
+                        }, err.status || err.code || 500);
                     }
                 }
                 clearInterval(titleTimer);
