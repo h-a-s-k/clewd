@@ -4,7 +4,7 @@
 */
 'use strict';
 
-const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {pipeline: pipelineP} = require('node:stream/promises'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream, writeFileSync} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable, SuperfetchFoldersMk, SuperfetchFoldersRm} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Main} = require('./lib/clewd-utils'), {isSTDivider, messagesToPrompt} = require('./lib/clewd-message'), ClewdStream = require('./lib/clewd-stream');
+const {createServer: Server, IncomingMessage, ServerResponse} = require('node:http'), {createHash: Hash, randomUUID, randomInt, randomBytes} = require('node:crypto'), {TransformStream, ReadableStream} = require('node:stream/web'), {Readable, Writable} = require('node:stream'), {pipeline: pipelineP} = require('node:stream/promises'), {Blob} = require('node:buffer'), {existsSync: exists, writeFileSync: write, createWriteStream, writeFileSync} = require('node:fs'), {join: joinP} = require('node:path'), {ClewdSuperfetch: Superfetch, SuperfetchAvailable, SuperfetchFoldersMk, SuperfetchFoldersRm} = require('./lib/clewd-superfetch'), {AI, fileName, genericFixes, bytesToSize, setTitle, checkResErr, Main, isBase64String, rgxBase64} = require('./lib/clewd-utils'), {isSTDivider, messagesToPrompt} = require('./lib/clewd-message'), ClewdStream = require('./lib/clewd-stream');
 
 let ChangedSettings, UnknownSettings, Logger;
 
@@ -38,7 +38,8 @@ let uuidOrg, curPrompt = {}, prevPrompt = {}, prevMessages = [], prevImpersonate
         ClearFlags: false,
         PreserveChats: false,
         LogMessages: false,
-        Superfetch: true
+        Superfetch: true,
+        SendImageDepth: 3
     }
 };
 
@@ -286,7 +287,7 @@ const updateParams = res => {
                 buffer.push(chunk);
             }));
             req.on('end', (async () => {
-                let clewdStream, titleTimer, samePrompt = false, shouldRenew = true, retryRegen = false;
+                let clewdStream, titleTimer, samePrompt = false, shouldRenew = true, retryRegen = false, imageId = '';
                 try {
                     const body = JSON.parse(Buffer.concat(buffer).toString());
                     let {messages, stream: streaming, model: modelName, temperature} = body;
@@ -411,17 +412,42 @@ const updateParams = res => {
                             Conversation.depth++;
                         }
                     }
-                    let {prompt, systems} = messagesToPrompt({
+                    let {prompt, systems, image} = messagesToPrompt({
                         messages,
                         promptType,
                         model: modelName,
                         Config
                     });
-                    console.log(`${modelName === assignedModel.name ? '[2m' : '[33m'}${modelName}[0m [[2m${promptType}[0m]${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
+                    image && (imageId = await (async (signal, image) => {
+                        if (!isBase64String(image)) {
+                            throw Error('Invalid image: ' + image.substring(0, 30));
+                        }
+                        const retrieve = await fetch(image), blob = await retrieve.blob(), body = new FormData;
+                        body.append('file', blob);
+                        let headers = {
+                            ...AI.hdr(Conversation.uuid || ''),
+                            Accept: '*/*',
+                            Cookie: getCookies()
+                        };
+                        delete headers['Content-Type'];
+                        delete headers.Referer;
+                        const res = await (Config.Settings.Superfetch ? Superfetch : fetch)(`${AI.end}/api/${uuidOrg || ''}/upload`, {
+                            stream: false,
+                            signal,
+                            method: 'POST',
+                            body,
+                            headers
+                        });
+                        updateParams(res);
+                        const {file_uuid} = await res.json();
+                        return file_uuid;
+                    })(signal, image));
+                    console.log(`${modelName === assignedModel.name ? '[2m' : '[33m'}${modelName}[0m [[2m${promptType}[0m]${imageId ? ' [[2mimg[0m]' : ''}${!retryRegen && systems.length > 0 ? ' ' + systems.join(' [33m/[0m ') : ''}`);
                     'R' !== promptType || prompt || (prompt = '...regen...');
                     Logger?.write(`\n\n-------\n[${(new Date).toLocaleString()}]\n####### MODEL: ${modelName}\n####### PROMPT (${promptType}):\n${prompt}\n--\n####### REPLY:\n`);
-                    retryRegen || (fetchAPI = await (async (signal, modelName, prompt, temperature, type) => {
-                        const isAssignedModel = assignedModel.name === modelName, attachments = [];
+                    retryRegen || (fetchAPI = await (async (signal, modelName, prompt, temperature, type, imageId) => {
+                        const isAssignedModel = assignedModel.name === modelName, attachments = [], files = [];
+                        imageId && files.push(imageId);
                         if (Config.Settings.PromptExperiments) {
                             attachments.push({
                                 extracted_content: prompt,
@@ -433,7 +459,8 @@ const updateParams = res => {
                         }
                         const body = {
                             attachments,
-                            files: [],
+                            files,
+                            sync_sources: [],
                             ...!isAssignedModel && {
                                 model: modelName
                             },
@@ -462,7 +489,7 @@ const updateParams = res => {
                         updateParams(res);
                         await checkResErr(res);
                         return res;
-                    })(signal, modelName, prompt, temperature, promptType));
+                    })(signal, modelName, prompt, temperature, promptType, imageId));
                     clewdStream = new ClewdStream({
                         config: Config,
                         minSize: Config.BufferSize,

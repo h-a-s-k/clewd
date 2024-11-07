@@ -76,6 +76,12 @@ error handling tweak
 
 send proper status codes for most things
 
+### **Hotfix 5**
+
+added new model
+
+> **SendImageDepth** added (requires `Send inline images`)
+
 # 4.8
 
 test endpoint

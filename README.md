@@ -46,7 +46,7 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
  - `PromptExperiments`: (true)/false
     * true is an alternative way to send your prompt to the AI
     * experiment before setting to false
-	* incompatible with `RenewAlways` set to false
+    * incompatible with `RenewAlways` set to false
 
  - `RetryRegenerate`: (false)/true
     * true uses the AI's own retry mechanism when you regenerate on your frontend
@@ -61,6 +61,11 @@ Warning: Some accounts are getting _hard-censored_ by the **rats**, you might no
  - `RenewAlways`: (true)/false
     * true makes a new conversation context each time
     * false *tries* to reutilize the same old conversation, sending only the actual last message each time, taking into consideration `SystemExperiments` (will not work properly unless your Main is the first system prompt and your Jailbreak is the last)
+
+ - `SendImageDepth`: (3)
+    - detects a image in the prompt and includes it in the next response. requires `Send inline images`.
+    * 0 will not send images to the AI
+    * \>=1 attaches the last image to prompt, provided it was found within the specified depth (last X messages). after that, the image is not included and the AI will become clueless about it
 
  - `StripAssistant`: (false)/true
     * true strips the "Assistant:" prefix from the last assistant message (if it's the last message)
